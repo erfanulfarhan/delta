@@ -16,6 +16,13 @@ const ARROW: Record<Direction, string> = { download: '↓', upload: '↑' };
 /**
  * Download and upload carry equal weight.
  *
+ * Upload gets heavier display easing than download. Its underlying signal is
+ * genuinely noisier: real upload throughput fluctuates more, and XHR reports
+ * bytes handed to the socket buffer rather than bytes acknowledged. Once the
+ * sample stream and the meter were matched to download's, the residual movement
+ * was real signal rather than a defect, so it is smoothed in the presentation
+ * instead. The reported figure is untouched: only the glide toward it is slower.
+ *
  * The previous layout gave download a large numeral and left upload as small
  * grey supporting text, which read as though upload were not measured at all.
  * Both phases do the same amount of work and both matter to the user, so both
@@ -51,6 +58,7 @@ function Readout({ direction, value, live, done, accent, glowRgb }: ReadoutProps
 
       <AnimatedNumber
         value={value}
+        {...(direction === 'upload' ? { stiffness: 0.038 } : {})}
         className="display text-[46px] leading-none font-bold transition-colors duration-500 sm:text-[56px]"
         style={{
           color: active ? 'var(--text)' : 'var(--faint)',

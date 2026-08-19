@@ -44,8 +44,19 @@ fi
 echo "    Local endpoint: $WORKER_URL"
 
 echo "==> 2/4  Checking the endpoint answers"
-if ! curl -fsS --max-time 15 "$WORKER_URL/ping" -o /dev/null; then
-  echo "    Worker deployed but /ping did not answer." >&2
+# Retried: a freshly created workers.dev route 404s for a few seconds before it
+# propagates, which is not a deployment failure.
+OK=""
+for attempt in 1 2 3 4 5 6; do
+  if curl -fsS --max-time 15 "$WORKER_URL/ping" -o /dev/null 2>/dev/null; then
+    OK="yes"
+    break
+  fi
+  echo "    not answering yet (attempt $attempt), waiting..."
+  sleep 5
+done
+if [[ -z "$OK" ]]; then
+  echo "    Worker deployed but /ping never answered." >&2
   exit 1
 fi
 COLO="$(curl -fsS --max-time 15 "$WORKER_URL/meta" | sed -n 's/.*"colo":"\([^"]*\)".*/\1/p' || true)"
@@ -62,9 +73,25 @@ VITE_SUPABASE_ANON_KEY="${VITE_SUPABASE_ANON_KEY:-}" \
   npx vite build
 
 echo "==> 4/4  Publishing the site (Pages)"
-$WRANGLER pages deploy dist --project-name "$PROJECT" --branch main --commit-dirty=true
+# Created on first run only. `pages project create` errors if the project is
+# already there, so the failure is swallowed rather than aborting a redeploy.
+if ! $WRANGLER pages project list 2>/dev/null | grep -q "\b${PROJECT}\b"; then
+  echo "    Creating Pages project '$PROJECT'"
+  $WRANGLER pages project create "$PROJECT" --production-branch main || true
+fi
+
+PAGES_OUTPUT="$($WRANGLER pages deploy dist --project-name "$PROJECT" --branch main --commit-dirty=true 2>&1 | tee /dev/stderr)"
+
+# Never assume the site lives at <project>.pages.dev. Cloudflare suffixes the
+# subdomain when the name is already taken globally, and "delta.pages.dev" is
+# someone else's blog. Read the real host out of the deployment URL instead.
+SITE_URL="$(printf '%s' "$PAGES_OUTPUT" \
+  | grep -oE 'https://[a-z0-9]+\.[a-z0-9-]+\.pages\.dev' \
+  | head -1 \
+  | sed -E 's#https://[a-z0-9]+\.#https://#')"
+SITE_URL="${SITE_URL:-https://${PROJECT}.pages.dev}"
 
 echo
 echo "Done."
 echo "  Local endpoint : $WORKER_URL"
-echo "  Site           : https://${PROJECT}.pages.dev"
+echo "  Site           : $SITE_URL"

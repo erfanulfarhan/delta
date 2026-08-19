@@ -17,13 +17,22 @@ import { sign } from '../../../packages/attest/src/index.ts';
 const MAX_BYTES = 128 * 1024 * 1024;
 const BLOCK = 64 * 1024;
 
-// One block of random bytes, reused. Incompressible is the property that
-// matters; regenerating per request would just burn CPU time.
-const POOL = (() => {
-  const buf = new Uint8Array(BLOCK);
-  crypto.getRandomValues(buf);
-  return buf;
-})();
+// One block of random bytes, reused across requests in the same isolate.
+// Incompressible is the property that matters; regenerating per request would
+// just burn CPU time.
+//
+// Built lazily rather than at module scope: Workers forbid generating random
+// values (along with fetch and timers) in global scope, so the top-level
+// version was rejected at deploy time even though it bundled cleanly.
+let POOL = null;
+
+function pool() {
+  if (POOL === null) {
+    POOL = new Uint8Array(BLOCK);
+    crypto.getRandomValues(POOL);
+  }
+  return POOL;
+}
 
 function corsHeaders(env, request) {
   const allowed = env.ALLOWED_ORIGINS ?? '*';
@@ -85,7 +94,8 @@ export default {
           pull(controller) {
             if (sent >= total) return controller.close();
             const size = Math.min(BLOCK, total - sent);
-            controller.enqueue(size === BLOCK ? POOL : POOL.subarray(0, size));
+            const block = pool();
+            controller.enqueue(size === BLOCK ? block : block.subarray(0, size));
             sent += size;
           },
         });

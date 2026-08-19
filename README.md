@@ -3,6 +3,18 @@
 Δ is the difference between two measurements, which is what this site reports.
 Bangladesh is also the world's largest river delta.
 
+**Live: https://delta-b4x.pages.dev**
+
+| | |
+| --- | --- |
+| Site | https://delta-b4x.pages.dev |
+| Local endpoint | https://delta-local.erfanul100.workers.dev (Cloudflare, PoP `DAC`) |
+| Raw endpoint | not deployed — needs a Singapore host |
+
+Local measurement is live. Raw is reported as undeployed in the interface rather
+than being pointed at a substitute, because a substitute would produce entirely
+plausible numbers for a path nobody measured.
+
 A speedtest for Bangladesh that measures both paths your connection actually has,
 and shows you the gap between them: **Local** (BDIX peering, never leaves the
 country) against **Raw** (Singapore, across your ISP's international capacity).

@@ -61,6 +61,11 @@ async function serveDownload(url, res) {
   res.end();
 }
 
+// Last-resort guard. A speedtest deliberately aborts connections constantly,
+// and a stray socket error must degrade one request rather than end the
+// process and take every other in-flight measurement with it.
+process.on('unhandledRejection', (err) => console.error('[unhandled]', err?.code ?? err));
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
   cors(req, res);
@@ -83,7 +88,16 @@ const server = createServer(async (req, res) => {
         // Must be fully drained. Responding early truncates the client's
         // upload and the measured figure becomes socket buffer size.
         let received = 0;
-        for await (const chunk of req) received += chunk.length;
+        // Clients abort uploads at the duration boundary by design, so the
+        // resulting ECONNRESET is routine. Unhandled it becomes an unhandled
+        // rejection and kills the process on every test.
+        req.on('error', () => {});
+        try {
+          for await (const chunk of req) received += chunk.length;
+        } catch {
+          return;
+        }
+        if (res.destroyed) return;
         res.writeHead(204, { 'X-Bytes-Received': String(received) });
         return res.end();
       }

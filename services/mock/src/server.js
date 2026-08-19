@@ -95,13 +95,28 @@ async function serveDownload(url, res) {
 
 async function drainUpload(req, res) {
   let received = 0;
-  for await (const chunk of req) {
-    await takeTokens(chunk.length);
-    received += chunk.length;
+  // A client aborting an upload mid-flight is normal here, not exceptional:
+  // the engine cuts every upload at the duration boundary by design. Left
+  // unhandled the resulting ECONNRESET becomes an unhandled rejection and
+  // takes the whole process down on every single test.
+  req.on('error', () => {});
+  try {
+    for await (const chunk of req) {
+      await takeTokens(chunk.length);
+      received += chunk.length;
+    }
+  } catch {
+    return; // socket already gone, nothing to reply to
   }
+  if (res.destroyed) return;
   res.writeHead(204, { 'X-Bytes-Received': String(received) });
   res.end();
 }
+
+// Last-resort guard. A speedtest deliberately aborts connections constantly,
+// and a stray socket error must degrade one request rather than end the
+// process and take every other in-flight measurement with it.
+process.on('unhandledRejection', (err) => console.error('[unhandled]', err?.code ?? err));
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host}`);

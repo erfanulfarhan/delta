@@ -13,13 +13,25 @@ const TARGET_REQUEST_MS = 1500;
  * result is fabricated. Random data cannot be compressed, so what we count is
  * what actually crossed the link.
  */
+const blobCache = new Map<number, Blob>();
+
 function randomBlob(bytes: number): Blob {
+  // Cached by size. Incompressibility is the property that matters; uniqueness
+  // is not. Regenerating megabytes of randomness for every request on every
+  // stream makes the CPU the bottleneck and measures entropy, not bandwidth.
+  const cached = blobCache.get(bytes);
+  if (cached) return cached;
+
   const buf = new Uint8Array(bytes);
   const CRYPTO_MAX = 65536; // getRandomValues rejects anything larger
   for (let offset = 0; offset < bytes; offset += CRYPTO_MAX) {
     crypto.getRandomValues(buf.subarray(offset, Math.min(offset + CRYPTO_MAX, bytes)));
   }
-  return new Blob([buf], { type: 'application/octet-stream' });
+  const blob = new Blob([buf], { type: 'application/octet-stream' });
+
+  if (blobCache.size > 12) blobCache.clear();
+  blobCache.set(bytes, blob);
+  return blob;
 }
 
 /**
@@ -41,8 +53,16 @@ export async function measureUpload(
   let chunkSize = MIN_CHUNK * 4;
   let stopped = false;
 
+  // The measurement clock starts at the first byte acknowledged, but the phase
+  // needs a separate wall clock. If no progress event ever arrives (the far end
+  // died, a proxy swallowed the body) the byte clock never starts, so a
+  // deadline derived from it can never fire and the phase hangs forever.
+  const phaseStart = performance.now();
+  const hardDeadline = phaseStart + cfg.transferMs * 3;
+
   const elapsed = () => (firstByteAt === null ? 0 : performance.now() - firstByteAt);
-  const expired = () => firstByteAt !== null && elapsed() >= cfg.transferMs;
+  const expired = () =>
+    performance.now() >= hardDeadline || (firstByteAt !== null && elapsed() >= cfg.transferMs);
 
   const record = (bytes: number) => {
     if (bytes <= 0) return;
@@ -79,6 +99,11 @@ export async function measureUpload(
       xhr.onload = finish;
       xhr.onerror = finish;
       xhr.onabort = finish;
+
+      // Independent of the phase deadline: a single request that neither
+      // completes nor errors would otherwise pin its stream loop open.
+      xhr.timeout = cfg.transferMs * 2;
+      xhr.ontimeout = finish;
 
       xhr.open('POST', `${cfg.baseUrl}/upload?salt=${Math.random().toString(36).slice(2)}`);
       xhr.send(body);

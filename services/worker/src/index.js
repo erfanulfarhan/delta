@@ -88,10 +88,17 @@ export default {
         let received = 0;
         const reader = request.body?.getReader();
         if (reader) {
-          for (;;) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            received += value.byteLength;
+          // Aborted uploads are routine: the client cuts every upload at the
+          // duration boundary. Reading a cancelled stream throws, and that
+          // must not surface as a 500.
+          try {
+            for (;;) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              received += value.byteLength;
+            }
+          } catch {
+            // client went away mid-upload
           }
         }
         return new Response(null, {

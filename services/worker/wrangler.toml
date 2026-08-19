@@ -1,0 +1,11 @@
+name = "speedtest-bdix"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+# No routes block: the workers.dev subdomain is the endpoint. Attach a custom
+# domain later if you want, but it changes nothing about the measurement.
+workers_dev = true
+
+[vars]
+SERVER_LABEL = "Cloudflare Dhaka PoP"
+ALLOWED_ORIGINS = "*"

@@ -1,0 +1,16 @@
+[Unit]
+Description=Speedtest RAW origin
+After=network.target
+
+[Service]
+Type=simple
+User=speedtest
+WorkingDirectory=/opt/speedtest-origin
+Environment=PORT=8080
+Environment=SERVER_LABEL=Singapore origin
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

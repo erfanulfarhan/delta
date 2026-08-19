@@ -1,0 +1,17 @@
+# Caddy terminates TLS for the RAW endpoint.
+#
+# HTTPS is not optional: the site is served over HTTPS, and a browser refuses
+# to call an HTTP endpoint from an HTTPS page (mixed content). So the Oracle
+# box needs a real domain with an A record pointing straight at its IP.
+#
+# Point the A record DIRECTLY at the Oracle IP. Do NOT enable Cloudflare's
+# orange-cloud proxy on this record: proxying it would serve the RAW endpoint
+# from Cloudflare's Dhaka PoP and the RAW number would silently become a
+# second BDIX number.
+
+raw.example.com {
+	encode off
+	reverse_proxy 127.0.0.1:8080 {
+		flush_interval -1
+	}
+}

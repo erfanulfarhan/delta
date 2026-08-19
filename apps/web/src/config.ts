@@ -1,0 +1,44 @@
+/**
+ * The two endpoints.
+ *
+ * These URLs are the entire difference between BDIX and RAW. The engine has no
+ * concept of a mode; it takes a base URL. Adding a third location later means
+ * adding an entry here, not touching measurement code.
+ */
+export type ModeId = 'bdix' | 'raw';
+
+export interface EndpointConfig {
+  id: ModeId;
+  label: string;
+  shortLabel: string;
+  /** What this endpoint actually measures, stated honestly. */
+  description: string;
+  baseUrl: string;
+}
+
+const env = import.meta.env;
+
+export const ENDPOINTS: Record<ModeId, EndpointConfig> = {
+  bdix: {
+    id: 'bdix',
+    label: 'BDIX',
+    shortLabel: 'Local',
+    description: 'Served over local peering inside Bangladesh. Never leaves the country.',
+    baseUrl: env.VITE_BDIX_URL ?? 'http://127.0.0.1:8080',
+  },
+  raw: {
+    id: 'raw',
+    label: 'RAW',
+    shortLabel: 'International',
+    description: 'Singapore. Crosses your ISP’s international bandwidth.',
+    baseUrl: env.VITE_RAW_URL ?? 'http://127.0.0.1:8081',
+  },
+};
+
+/**
+ * True when both endpoints still point at localhost, meaning nothing real is
+ * being measured. The interface says so out loud rather than presenting mock
+ * figures as though they came from a network.
+ */
+export const USING_MOCKS =
+  ENDPOINTS.bdix.baseUrl.includes('127.0.0.1') || ENDPOINTS.raw.baseUrl.includes('127.0.0.1');

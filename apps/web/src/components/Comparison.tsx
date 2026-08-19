@@ -16,16 +16,27 @@ interface Props {
  * connection that benchmarks at 90 Mbps still buffers on YouTube.
  */
 export function Comparison({ bdix, raw }: Props) {
-  const ratio = raw.downloadMbps > 0 ? bdix.downloadMbps / raw.downloadMbps : 0;
+  const rawFirst = raw.downloadMbps > bdix.downloadMbps;
+
+  // Always expressed as "the faster one is N times the slower one", never as a
+  // fraction. A connection whose international path is quicker is unusual in
+  // Bangladesh but entirely real on business lines, and "local is faster by
+  // 0.8x" is not a sentence that means anything.
+  const faster = rawFirst ? raw.downloadMbps : bdix.downloadMbps;
+  const slower = rawFirst ? bdix.downloadMbps : raw.downloadMbps;
+  const ratio = slower > 0 ? faster / slower : 0;
+  const heading = rawFirst ? 'International is faster by' : 'Local is faster by';
 
   const verdict =
-    ratio >= 5
-      ? 'Almost all of your speed is local. International traffic gets a fraction of it.'
-      : ratio >= 2
-        ? 'Your local speed is meaningfully faster than your international speed.'
-        : ratio > 0
-          ? 'Both paths are close. Your connection performs consistently abroad.'
-          : 'Not enough data to compare.';
+    ratio <= 0
+      ? 'Not enough data to compare.'
+      : ratio < 1.25
+        ? 'Both paths are close. Your connection performs the same abroad as it does locally.'
+        : rawFirst
+          ? 'Your international path is the quicker one, which is unusual here and typical of a business line with generous IIG capacity.'
+          : ratio >= 5
+            ? 'Almost all of your speed is local. International traffic gets a fraction of it.'
+            : 'Your local speed is meaningfully faster than your international speed.';
 
   return (
     <div className="rise flex w-full max-w-3xl flex-col items-center gap-8">
@@ -62,7 +73,7 @@ export function Comparison({ bdix, raw }: Props) {
 
       <div className="flex flex-col items-center gap-3 text-center">
         <span className="mono text-[10px] uppercase tracking-[0.34em] text-white/35">
-          Local is faster by
+          {heading}
         </span>
         <div className="flex items-baseline justify-center gap-2">
           <span className="display text-[46px] leading-none text-white/35">×</span>

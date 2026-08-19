@@ -71,6 +71,13 @@ export interface RawServer {
   country: string;
   flag: string;
   baseUrl: string;
+  /**
+   * How far along the distance line this server sits, relative to the furthest.
+   * Roughly proportional to great-circle distance from Bangladesh, so the
+   * drawing says something true rather than treating every destination as
+   * equally remote.
+   */
+  reach: number;
 }
 
 export const RAW_SERVERS: RawServer[] = [
@@ -80,6 +87,7 @@ export const RAW_SERVERS: RawServer[] = [
     country: 'SG',
     flag: '🇸🇬',
     baseUrl: 'https://delta-sin1.vercel.app/api',
+    reach: 0.84,
   },
   {
     id: 'bom1',
@@ -87,6 +95,7 @@ export const RAW_SERVERS: RawServer[] = [
     country: 'IN',
     flag: '🇮🇳',
     baseUrl: 'https://delta-bom1.vercel.app/api',
+    reach: 0.58,
   },
   {
     id: 'hnd1',
@@ -94,6 +103,7 @@ export const RAW_SERVERS: RawServer[] = [
     country: 'JP',
     flag: '🇯🇵',
     baseUrl: 'https://delta-hnd1.vercel.app/api',
+    reach: 1,
   },
 ];
 

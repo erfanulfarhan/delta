@@ -23,6 +23,7 @@ import {
   BOTH_AVAILABLE,
   DEFAULT_RAW_SERVER,
   ENDPOINTS,
+  rawServer,
   USING_MOCKS,
   type ModeId,
 } from './config';
@@ -214,6 +215,12 @@ export default function App() {
                   mbps={state.running ? state.live : 0}
                   direction={direction}
                   reducedMotion={reducedMotion}
+                  farLabel={
+                    shownMode === 'raw'
+                      ? rawServer(rawServerId).city.toUpperCase()
+                      : undefined
+                  }
+                  reach={shownMode === 'raw' ? rawServer(rawServerId).reach : 1}
                 />
               </div>
               {/* The trace only earns its space once there is a curve to draw. */}

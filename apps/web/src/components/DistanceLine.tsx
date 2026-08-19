@@ -3,9 +3,21 @@ import type { World } from '../worlds';
 
 interface Props {
   world: World;
+  /** Live throughput in Mbps; drives packet density and velocity. */
   mbps: number;
   direction: 'down' | 'up' | 'idle';
   reducedMotion: boolean;
+  /**
+   * Name of the far endpoint.
+   *
+   * The world only knows "local" or "raw" and cannot know which international
+   * server was chosen, so without this the line read SINGAPORE whatever was
+   * selected. That is worse than showing nothing: it named a location that was
+   * not the one being measured.
+   */
+  farLabel?: string;
+  /** Multiplies the world's distance, so nearer servers are drawn nearer. */
+  reach?: number;
 }
 
 interface Packet {
@@ -25,10 +37,10 @@ const PACKETS = 90;
  * Drawn as a measured instrument scale rather than an ambient particle field,
  * because the distance is a fact being reported, not decoration.
  */
-export function DistanceLine({ world, mbps, direction, reducedMotion }: Props) {
+export function DistanceLine({ world, mbps, direction, reducedMotion, farLabel, reach = 1 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const propsRef = useRef({ world, mbps, direction });
-  propsRef.current = { world, mbps, direction };
+  const propsRef = useRef({ world, mbps, direction, farLabel, reach });
+  propsRef.current = { world, mbps, direction, farLabel, reach };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -62,7 +74,8 @@ export function DistanceLine({ world, mbps, direction, reducedMotion }: Props) {
     const draw = (now: number) => {
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
-      const { world: w, mbps: live, direction: dir } = propsRef.current;
+      const { world: w, mbps: live, direction: dir, farLabel: label, reach: r } = propsRef.current;
+      const distance = Math.max(0.06, Math.min(w.distance * r, 1));
 
       ctx.clearRect(0, 0, width, height);
 
@@ -70,7 +83,7 @@ export function DistanceLine({ world, mbps, direction, reducedMotion }: Props) {
       const x0 = padding;
       const x1 = width - padding;
       const y = height * 0.5;
-      const far = x0 + (x1 - x0) * w.distance;
+      const far = x0 + (x1 - x0) * distance;
 
       // Baseline, full span, drawn faint. The line is the possible distance;
       // the lit portion is the distance actually travelled.
@@ -146,7 +159,7 @@ export function DistanceLine({ world, mbps, direction, reducedMotion }: Props) {
       };
 
       endpoint(x0, 'YOU', false);
-      endpoint(far, w.farLabel, true);
+      endpoint(far, label ?? w.farLabel, true);
 
       raf = requestAnimationFrame(draw);
     };

@@ -24,6 +24,7 @@ export async function measureDownload(
   cfg: EngineConfig,
   onSample: (bytes: number, atMs: number) => void,
   signal?: AbortSignal,
+  onToken?: (token: string) => void,
 ): Promise<TransferResult> {
   const samples: ByteSample[] = [];
   let firstByteAt: number | null = null;
@@ -48,12 +49,24 @@ export async function measureDownload(
   const stream = async (): Promise<void> => {
     while (!expired() && !controller.signal.aborted) {
       const requestStarted = performance.now();
+      // Captured per request. `chunkSize` is shared by all six stream loops and
+      // any of them may resize it while this request is in flight, so comparing
+      // the bytes received against the live value silently misjudges whether
+      // this particular transfer completed.
+      const requestedBytes = chunkSize;
       let received = 0;
+      let token: string | null = null;
       try {
         const response = await fetch(
-          `${cfg.baseUrl}/download?bytes=${chunkSize}&salt=${salt()}`,
+          `${cfg.baseUrl}/download?bytes=${requestedBytes}&salt=${salt()}&session=${cfg.session}`,
           { cache: 'no-store', signal: controller.signal },
         );
+        // Held until the body is fully consumed. The endpoint signs the size it
+        // was asked for, before it knows whether the client will read all of it,
+        // and this loop deliberately aborts mid-body at the deadline. Counting
+        // an attestation for a request that was cut short would credit bytes
+        // that never arrived.
+        token = response.headers.get('X-Delta-Attest');
         const reader = response.body?.getReader();
         if (!reader) return;
         for (;;) {
@@ -74,9 +87,11 @@ export async function measureDownload(
         continue;
       }
 
+      if (token && received >= requestedBytes) onToken?.(token);
+
       const took = performance.now() - requestStarted;
       if (took > 0 && received > 0) {
-        const scaled = chunkSize * (TARGET_REQUEST_MS / took);
+        const scaled = requestedBytes * (TARGET_REQUEST_MS / took);
         chunkSize = Math.max(MIN_CHUNK, Math.min(MAX_CHUNK, Math.round(scaled)));
       }
     }

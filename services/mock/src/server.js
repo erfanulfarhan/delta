@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
+import { sign } from '../../../packages/attest/src/index.ts';
 
 /**
  * Mock endpoint implementing the speedtest contract with deliberate throttling.
@@ -38,6 +39,7 @@ function cors(res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Timing-Allow-Origin', '*');
+  res.setHeader('Access-Control-Expose-Headers', 'X-Delta-Attest');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
 }
@@ -59,26 +61,48 @@ const RATE_BYTES_PER_SEC = MBPS > 0 ? (MBPS * 1_000_000) / 8 : Infinity;
 // spike. Real shapers tolerate milliseconds of burst, so the harness has to as
 // well, otherwise it manufactures the very spikes it is being used to detect.
 const BURST_MS = 40;
-// Never smaller than one block, or takeTokens can never be satisfied and the
-// shaper deadlocks: at 5 Mbps a 40ms budget is 25 KB against a 64 KB block, and
-// the server stops sending entirely.
 const BUCKET_MAX = Math.max(RATE_BYTES_PER_SEC * (BURST_MS / 1000), BLOCK);
 
 let tokens = 0;
 let lastRefill = Date.now();
 
+function refill() {
+  const now = Date.now();
+  tokens = Math.min(BUCKET_MAX, tokens + ((now - lastRefill) / 1000) * RATE_BYTES_PER_SEC);
+  lastRefill = now;
+}
+
+/**
+ * Consume `n` bytes of credit, in instalments.
+ *
+ * Deliberately partial rather than all-or-nothing. Upload chunk sizes are
+ * chosen by Node, not by this file, and any chunk larger than the bucket could
+ * never be satisfied in one go: the loop would spin forever and the endpoint
+ * would simply stop responding. Draining whatever credit exists and waiting for
+ * the rest cannot deadlock for any n.
+ */
 async function takeTokens(n) {
   if (RATE_BYTES_PER_SEC === Infinity) return;
-  for (;;) {
-    const now = Date.now();
-    tokens = Math.min(BUCKET_MAX, tokens + ((now - lastRefill) / 1000) * RATE_BYTES_PER_SEC);
-    lastRefill = now;
-    if (tokens >= n) {
-      tokens -= n;
-      return;
+  let remaining = n;
+  while (remaining > 0) {
+    refill();
+    const take = Math.min(remaining, tokens);
+    if (take > 0) {
+      tokens -= take;
+      remaining -= take;
     }
-    await sleep(Math.max(1, ((n - tokens) / RATE_BYTES_PER_SEC) * 1000));
+    if (remaining > 0) {
+      await sleep(Math.max(1, (Math.min(remaining, BUCKET_MAX) / RATE_BYTES_PER_SEC) * 1000));
+    }
   }
+}
+
+async function attest(url, direction, bytes) {
+  const secret = process.env.SIGNING_SECRET;
+  if (!secret) return null;
+  const session = url.searchParams.get('session');
+  if (!session || session.includes('.')) return null;
+  return sign({ session, direction, bytes, at: Date.now() }, secret);
 }
 
 async function serveDownload(url, res) {
@@ -90,6 +114,8 @@ async function serveDownload(url, res) {
   // Explicitly identity: a compressing proxy in front of zeros is the classic
   // way to accidentally measure a fabricated gigabit.
   res.setHeader('Content-Encoding', 'identity');
+  const token = await attest(url, 'down', total);
+  if (token) res.setHeader('X-Delta-Attest', token);
   res.writeHead(200);
 
   let sent = 0;
@@ -106,7 +132,7 @@ async function serveDownload(url, res) {
   res.end();
 }
 
-async function drainUpload(req, res) {
+async function drainUpload(req, res, url) {
   let received = 0;
   // A client aborting an upload mid-flight is normal here, not exceptional:
   // the engine cuts every upload at the duration boundary by design. Left
@@ -122,7 +148,11 @@ async function drainUpload(req, res) {
     return; // socket already gone, nothing to reply to
   }
   if (res.destroyed) return;
-  res.writeHead(204, { 'X-Bytes-Received': String(received) });
+  const upToken = await attest(url, 'up', received);
+  res.writeHead(204, {
+    'X-Bytes-Received': String(received),
+    ...(upToken ? { 'X-Delta-Attest': upToken } : {}),
+  });
   res.end();
 }
 
@@ -152,7 +182,7 @@ const server = createServer(async (req, res) => {
         if (LATENCY_MS > 0) await sleep(delay());
         return serveDownload(url, res);
       case '/upload':
-        return drainUpload(req, res);
+        return drainUpload(req, res, url);
       case '/meta':
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(

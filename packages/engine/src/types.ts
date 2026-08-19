@@ -48,6 +48,9 @@ export interface Meta {
 
 export interface RunResult {
   mode: string;
+  session: string;
+  /** Signed byte-count attestations from the endpoint, for server-side checking. */
+  tokens: string[];
   downloadMbps: number;
   uploadMbps: number;
   pingMs: number;
@@ -60,8 +63,14 @@ export interface RunResult {
 }
 
 export interface EngineConfig {
-  /** Base URL of the endpoint. This is the ONLY thing distinguishing BDIX from RAW. */
+  /** Base URL of the endpoint. This is the ONLY thing distinguishing local from raw. */
   baseUrl: string;
+  /**
+   * Ties every attestation from this run together. Sent on each request so the
+   * endpoint can bind its signed byte counts to one measurement, which is what
+   * stops tokens being replayed from an earlier, faster run.
+   */
+  session: string;
   /** Label carried through to the result. Presentation only. */
   mode: string;
   /** Wall clock window per transfer phase. */
@@ -77,7 +86,7 @@ export interface EngineConfig {
   trimFraction: number;
 }
 
-export const DEFAULT_CONFIG: Omit<EngineConfig, 'baseUrl' | 'mode'> = {
+export const DEFAULT_CONFIG: Omit<EngineConfig, 'baseUrl' | 'mode' | 'session'> = {
   transferMs: 8000,
   streams: 6,
   pingSamples: 10,

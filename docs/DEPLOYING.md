@@ -80,7 +80,31 @@ Verify from outside:
 curl -s https://raw.yourdomain.com/health
 ```
 
-## 3. The site (Vercel)
+## 3. Results storage (Supabase)
+
+Create a project, then run `supabase/migrations/20260819000001_results.sql` in
+the SQL editor.
+
+The access model is worth understanding before changing it. Browser keys have
+**no** policy on `results`, so they can neither read nor write the table. Writes
+arrive only through `/api/results`, which checks the endpoints' signed byte
+counts and inserts with the service role. Reads of a single result go through
+`get_result(short_id)`, so possession of the id is what grants access, which is
+what a share link is supposed to mean. Granting `select` on the table would make
+every result anyone ever ran enumerable, along with their ISP and city.
+
+Generate one signing secret and set the **same value** in all three places, or
+every result arrives unverified:
+
+```sh
+openssl rand -hex 32
+```
+
+- `SIGNING_SECRET` on the Cloudflare Worker (`wrangler secret put SIGNING_SECRET`)
+- `SIGNING_SECRET` on the Oracle host (in the systemd unit)
+- `SIGNING_SECRET` on Vercel
+
+## 4. The site (Vercel)
 
 ```sh
 npm i -g vercel
@@ -88,6 +112,18 @@ export VERCEL_TOKEN=...        # non-interactive; put it in ~/.erfanul-secrets.e
 vercel link --yes --token $VERCEL_TOKEN
 vercel env add VITE_BDIX_URL production --token $VERCEL_TOKEN
 vercel env add VITE_RAW_URL  production --token $VERCEL_TOKEN
+
+# Storage. The anon key is public by design and safe to ship in the bundle,
+# because the table has no policy granting it anything.
+vercel env add VITE_SUPABASE_URL       production --token $VERCEL_TOKEN
+vercel env add VITE_SUPABASE_ANON_KEY  production --token $VERCEL_TOKEN
+
+# Server side only. The service role key bypasses RLS entirely; it must never
+# appear in a VITE_ variable, since anything so prefixed is compiled into the
+# JavaScript every visitor downloads.
+vercel env add SUPABASE_URL              production --token $VERCEL_TOKEN
+vercel env add SUPABASE_SERVICE_ROLE_KEY production --token $VERCEL_TOKEN
+vercel env add SIGNING_SECRET            production --token $VERCEL_TOKEN
 vercel deploy --prod --token $VERCEL_TOKEN
 ```
 
@@ -103,6 +139,23 @@ origin so other sites cannot bill your egress to run their own speedtests:
 ```sh
 wrangler secret put ALLOWED_ORIGINS      # https://yourdomain.com
 ```
+
+## Verification
+
+The endpoints sign what they actually served, and `/api/results` checks a
+submitted result against those signatures before marking it `verified`. Only
+verified rows reach the ISP leaderboard.
+
+Be clear about the strength of this. It catches fabrication, a client posting
+950 Mbps having moved 26 MB, by a factor of ten or more. It does not catch a
+careful attacker shaving 50 percent onto a real result: requests still in flight
+when a phase ends are aborted and never attested, so a genuine run legitimately
+attests well under what its headline figure implies, and the tolerance has to
+absorb that. Marginal noise is handled by the leaderboard instead, with medians
+and a minimum sample count.
+
+If `SIGNING_SECRET` is unset anywhere in the chain, results still save and still
+share; they simply never become verified, and the leaderboard stays empty.
 
 ## Bandwidth reality check
 

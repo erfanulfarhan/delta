@@ -12,6 +12,8 @@
  * bytes only.
  */
 
+import { sign } from '../../../packages/attest/src/index.ts';
+
 const MAX_BYTES = 128 * 1024 * 1024;
 const BLOCK = 64 * 1024;
 
@@ -36,8 +38,26 @@ function corsHeaders(env, request) {
     // Without this, cross-origin Resource Timing is redacted and any fallback
     // timing path silently reports zeros.
     'Timing-Allow-Origin': '*',
+    // Without this the browser can see the attestation header exists but not
+    // read it, and every result silently arrives unverified.
+    'Access-Control-Expose-Headers': 'X-Delta-Attest',
     'Cache-Control': 'no-store, no-cache, must-revalidate',
   };
+}
+
+/**
+ * Attest what this request actually moved.
+ *
+ * Signed here because this is the only party that knows the true figure. The
+ * key never reaches the browser, so a client can discard tokens and report a
+ * slower result, but cannot manufacture bytes that were never sent.
+ */
+async function attest(env, url, direction, bytes) {
+  const secret = env.SIGNING_SECRET;
+  if (!secret) return null;
+  const session = url.searchParams.get('session');
+  if (!session || session.includes('.')) return null;
+  return sign({ session, direction, bytes, at: Date.now() }, secret);
 }
 
 export default {
@@ -70,6 +90,8 @@ export default {
           },
         });
 
+        const token = await attest(env, url, 'down', total);
+
         return new Response(stream, {
           status: 200,
           headers: {
@@ -77,6 +99,7 @@ export default {
             'Content-Type': 'application/octet-stream',
             'Content-Length': String(total),
             'Content-Encoding': 'identity',
+            ...(token ? { 'X-Delta-Attest': token } : {}),
           },
         });
       }
@@ -101,9 +124,15 @@ export default {
             // client went away mid-upload
           }
         }
+        const upToken = await attest(env, url, 'up', received);
+
         return new Response(null, {
           status: 204,
-          headers: { ...cors, 'X-Bytes-Received': String(received) },
+          headers: {
+            ...cors,
+            'X-Bytes-Received': String(received),
+            ...(upToken ? { 'X-Delta-Attest': upToken } : {}),
+          },
         });
       }
 

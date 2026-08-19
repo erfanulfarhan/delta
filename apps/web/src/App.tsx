@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Gauge } from './components/Gauge';
 import { ModeToggle } from './components/ModeToggle';
 import { DistanceLine } from './components/DistanceLine';
@@ -7,6 +7,14 @@ import { Trace } from './components/Trace';
 import { Comparison } from './components/Comparison';
 import { useReducedMotion, useWorld } from './hooks/useWorld';
 import { useSpeedtest } from './hooks/useSpeedtest';
+import { SharedResultView } from './components/SharedResultView';
+import { Leaderboard } from './components/Leaderboard';
+import { HistoryPanel } from './components/HistoryPanel';
+import { ShareBar } from './components/ShareBar';
+import { appendHistory, loadHistory, type HistoryEntry } from './lib/history';
+import { saveResult } from './lib/results';
+import { SHARING_ENABLED } from './lib/supabase';
+import { navigate, parseRoute, type Route } from './lib/route';
 import { ENDPOINTS, USING_MOCKS, type ModeId } from './config';
 
 const PHASE_LABEL: Record<string, string> = {
@@ -22,6 +30,51 @@ export default function App() {
   const [mode, setMode] = useState<ModeId>('bdix');
   const reducedMotion = useReducedMotion();
   const { state, start, reset } = useSpeedtest();
+
+  const [route, setRoute] = useState<Route>(() => parseRoute(window.location.pathname));
+  const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
+  const [share, setShare] = useState<{ id: string | null; verified: boolean; saving: boolean }>({
+    id: null,
+    verified: false,
+    saving: false,
+  });
+
+  useEffect(() => {
+    const onPop = () => setRoute(parseRoute(window.location.pathname));
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  const finished = state.phase === 'done' && !state.running;
+
+  // Persist exactly once per completed run. Local history is written first and
+  // unconditionally, so a failed or unconfigured save never costs the user the
+  // record of their own test.
+  useEffect(() => {
+    if (!finished) return;
+    const results = state.results;
+    if (!results.bdix && !results.raw) return;
+
+    setHistory(appendHistory(state.kind, results));
+    if (!SHARING_ENABLED) return;
+
+    let alive = true;
+    setShare({ id: null, verified: false, saving: true });
+    saveResult(state.kind, results).then((saved) => {
+      if (!alive) return;
+      setShare({ id: saved?.shortId ?? null, verified: saved?.verified ?? false, saving: false });
+      if (saved) setHistory(appendHistory(state.kind, results, saved.shortId));
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished]);
+
+  const restart = useCallback(() => {
+    setShare({ id: null, verified: false, saving: false });
+    reset();
+  }, [reset]);
 
   const shownMode = state.active ?? mode;
   const world = useWorld(shownMode, reducedMotion);
@@ -80,7 +133,10 @@ export default function App() {
           </div>
         )}
 
-        {!bothDone && (
+        {route.name === 'shared' && <SharedResultView id={route.id} />}
+        {route.name === 'leaderboard' && <Leaderboard />}
+
+        {route.name === 'home' && !bothDone && (
           <>
             <ModeToggle
               mode={state.kind === 'both' && state.active ? state.active : mode}
@@ -131,6 +187,10 @@ export default function App() {
               )}
             </div>
 
+            {finished && state.kind === 'single' && (
+              <ShareBar shortId={share.id} verified={share.verified} saving={share.saving} />
+            )}
+
             <div className="flex flex-wrap items-center justify-center gap-3">
               <button
                 onClick={() => start('single', mode)}
@@ -158,16 +218,21 @@ export default function App() {
           </>
         )}
 
-        {bothDone && (
+        {route.name === 'home' && bothDone && (
           <>
             <Comparison bdix={state.results.bdix!} raw={state.results.raw!} />
+            <ShareBar shortId={share.id} verified={share.verified} saving={share.saving} />
             <button
-              onClick={reset}
+              onClick={restart}
               className="panel cursor-pointer rounded-full px-7 py-3 text-[11px] tracking-[0.18em] text-[var(--muted)] uppercase transition-colors hover:text-[var(--text)]"
             >
               Test again
             </button>
           </>
+        )}
+
+        {route.name === 'home' && !state.running && (
+          <HistoryPanel entries={history} onCleared={() => setHistory([])} />
         )}
 
         {state.error && (
@@ -176,9 +241,19 @@ export default function App() {
           </p>
         )}
 
-        <footer className="mono mt-auto pt-6 text-center text-[9px] leading-relaxed text-[var(--faint)]">
-          BDIX is measured against a Cloudflare edge inside Bangladesh, which reaches most local ISPs
-          over BDIX peering. It approximates a BDIX server rather than being one.
+        <footer className="mono mt-auto flex flex-col items-center gap-3 pt-6 text-center text-[9px] leading-relaxed text-[var(--faint)]">
+          {SHARING_ENABLED && route.name === 'home' && (
+            <button
+              onClick={() => navigate('/leaderboard')}
+              className="cursor-pointer uppercase tracking-[0.2em] transition-colors hover:text-[var(--text)]"
+            >
+              ISP leaderboard
+            </button>
+          )}
+          <span className="max-w-xl">
+            Local is measured against a Cloudflare edge inside Bangladesh, which reaches most local
+            ISPs over BDIX peering. It approximates a BDIX server rather than being one.
+          </span>
         </footer>
       </main>
     </div>

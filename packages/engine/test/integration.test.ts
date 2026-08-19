@@ -32,6 +32,7 @@ const config = (baseUrl: string): EngineConfig => ({
   ...DEFAULT_CONFIG,
   baseUrl,
   mode: 'test',
+  session: 'testsession',
   transferMs: 3000,
 });
 

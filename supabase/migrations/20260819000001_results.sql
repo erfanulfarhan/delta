@@ -72,14 +72,14 @@ create index results_isp_verified_idx on public.results (isp, created_at desc)
 alter table public.results enable row level security;
 alter table public.results force row level security;
 
--- Anonymous insert is intentional: the product has no accounts.
-create policy results_anon_insert on public.results
-  for insert
-  to anon, authenticated
-  with check (true);
-
--- No SELECT policy exists, deliberately. With RLS enabled and no policy, direct
--- reads return nothing for every role. Reads go through get_result below.
+-- No policies exist for anon or authenticated, deliberately.
+--
+-- With RLS enabled and no policy, every direct read and write from a browser
+-- key returns nothing. Writes arrive only through /api/results, which verifies
+-- the endpoint's signed byte-count tokens before inserting with the service
+-- role. An anonymous insert policy would have let anyone POST arbitrary numbers
+-- straight into the leaderboard's source data, which is precisely the thing
+-- verification exists to prevent.
 
 /**
  * Read one result by its share id.
@@ -127,7 +127,50 @@ $$;
 revoke all on function public.get_result(text) from public;
 grant execute on function public.get_result(text) to anon, authenticated;
 
--- Least privilege on the table itself: insert only, and no access to the
--- identity sequence beyond what insert needs.
+/**
+ * ISP leaderboard.
+ *
+ * Median rather than mean, so one outlier cannot move a provider's ranking, and
+ * a minimum sample count so a single enthusiastic user cannot put their ISP top
+ * of the table. Only verified rows are counted: an aggregate built on
+ * unverified submissions presents fabricated data with the authority of
+ * statistics, which is worse than having no leaderboard at all.
+ */
+create or replace function public.isp_leaderboard(
+  p_min_samples int default 20,
+  p_days int default 30
+)
+returns table (
+  isp text,
+  samples bigint,
+  median_local_down numeric,
+  median_raw_down numeric,
+  median_raw_ping numeric
+)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    r.isp,
+    count(*) as samples,
+    percentile_cont(0.5) within group (order by r.bdix_down) as median_local_down,
+    percentile_cont(0.5) within group (order by r.raw_down) as median_raw_down,
+    percentile_cont(0.5) within group (order by r.raw_ping) as median_raw_ping
+  from public.results r
+  where r.verified
+    and r.isp is not null
+    and r.created_at > now() - make_interval(days => p_days)
+  group by r.isp
+  having count(*) >= p_min_samples
+  order by median_raw_down desc nulls last
+  limit 50;
+$$;
+
+revoke all on function public.isp_leaderboard(int, int) from public;
+grant execute on function public.isp_leaderboard(int, int) to anon, authenticated;
+
+-- Least privilege on the table: browser keys get nothing at all. Only the
+-- service role, used exclusively by /api/results, touches rows directly.
 revoke all on table public.results from anon, authenticated;
-grant insert on table public.results to anon, authenticated;

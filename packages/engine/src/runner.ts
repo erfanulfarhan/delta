@@ -15,7 +15,9 @@ export interface RunEvent {
 export interface RunOptions {
   baseUrl: string;
   mode: string;
-  config?: Partial<Omit<EngineConfig, 'baseUrl' | 'mode'>>;
+  /** Supplied by the caller so a run-both pair can share one session. */
+  session?: string;
+  config?: Partial<Omit<EngineConfig, 'baseUrl' | 'mode' | 'session'>>;
   onEvent?: (event: RunEvent) => void;
   signal?: AbortSignal;
 }
@@ -78,12 +80,23 @@ export function liveMeter(windowMs = 900, tauMs = 400) {
  * later as a config entry rather than a code change.
  */
 export async function run(options: RunOptions): Promise<RunResult> {
+  const session =
+    options.session ??
+    // Dots would break the attestation payload's field separator.
+    Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) =>
+      b.toString(16).padStart(2, '0'),
+    ).join('');
+
   const cfg: EngineConfig = {
     ...DEFAULT_CONFIG,
     ...options.config,
     baseUrl: options.baseUrl.replace(/\/$/, ''),
     mode: options.mode,
+    session,
   };
+
+  const tokens: string[] = [];
+  const collect = (token: string) => tokens.push(token);
   const emit = options.onEvent ?? (() => {});
   const startedAt = new Date().toISOString();
 
@@ -104,6 +117,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
         progress: Math.min(atMs / cfg.transferMs, 1),
       }),
     options.signal,
+    collect,
   );
 
   emit({ phase: 'upload', mbps: 0, progress: 0 });
@@ -117,12 +131,15 @@ export async function run(options: RunOptions): Promise<RunResult> {
         progress: Math.min(atMs / cfg.transferMs, 1),
       }),
     options.signal,
+    collect,
   );
 
   emit({ phase: 'done', mbps: download.mbps, progress: 1 });
 
   return {
     mode: cfg.mode,
+    session,
+    tokens,
     downloadMbps: download.mbps,
     uploadMbps: upload.mbps,
     pingMs: latency.pingMs,

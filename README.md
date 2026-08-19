@@ -23,6 +23,8 @@ on YouTube.
 | `services/mock` | Local endpoint with deliberate throttling, for testing both ends of the speed range. |
 | `services/worker` | BDIX endpoint. Cloudflare Worker. |
 | `services/origin` | RAW endpoint. Node service for the Singapore host. |
+| `packages/attest` | Signed byte-count attestation, shared by both endpoints and the verifier. |
+| `supabase/` | Schema. Browser keys can neither read nor write the results table. |
 
 The engine takes a base URL and a label. BDIX and RAW are two values passed in,
 not two code paths, which is why adding a third location later is a config entry
@@ -87,6 +89,22 @@ Dhaka PoP, so for most Bangladeshi ISPs these requests are served over local
 peering. It approximates a BDIX server; it is not a certified one, and the
 interface says so rather than overclaiming. Swapping in a real BDIX-peered VPS
 later is a base URL change, because both endpoints implement the same contract.
+
+## Results, sharing and the leaderboard
+
+A finished run is written to local history immediately, with no backend
+involved, so the site works fully unconfigured. Where Supabase is configured it
+is also saved through `/api/results` and gets a share link at `/r/:id`.
+
+The ISP leaderboard counts only verified results. Verification works by having
+each endpoint sign the byte count it actually served; the browser collects those
+signatures and the API function checks them against the claimed result before
+storing it. The signing key never reaches the browser, so a client can discard
+tokens and under-report but cannot invent bytes that were never sent.
+
+This catches fabrication by a factor of ten or more, not a careful 50 percent
+shave. See `docs/DEPLOYING.md` for why, and for the access model on the results
+table.
 
 See `docs/superpowers/specs/` for the full design, and `docs/DEPLOYING.md` for
 setup.

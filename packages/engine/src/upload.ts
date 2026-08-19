@@ -52,6 +52,7 @@ export async function measureUpload(
   cfg: EngineConfig,
   onSample: (bytes: number, atMs: number) => void,
   signal?: AbortSignal,
+  onToken?: (token: string) => void,
 ): Promise<TransferResult> {
   const samples: ByteSample[] = [];
   let firstByteAt: number | null = null;
@@ -99,6 +100,14 @@ export async function measureUpload(
       };
       const finish = () => {
         inflight.delete(xhr);
+        // Only a completed request carries an attestation; an aborted one
+        // never got a response, and its bytes are correctly not counted.
+        try {
+          const token = xhr.getResponseHeader('X-Delta-Attest');
+          if (token) onToken?.(token);
+        } catch {
+          /* headers unavailable on an aborted request */
+        }
         resolve(performance.now() - started);
       };
       xhr.onload = finish;
@@ -110,7 +119,10 @@ export async function measureUpload(
       xhr.timeout = cfg.transferMs * 2;
       xhr.ontimeout = finish;
 
-      xhr.open('POST', `${cfg.baseUrl}/upload?salt=${Math.random().toString(36).slice(2)}`);
+      xhr.open(
+        'POST',
+        `${cfg.baseUrl}/upload?salt=${Math.random().toString(36).slice(2)}&session=${cfg.session}`,
+      );
       xhr.send(body);
     });
 

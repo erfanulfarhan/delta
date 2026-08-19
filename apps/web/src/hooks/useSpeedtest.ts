@@ -33,9 +33,23 @@ function createWorker(): Worker {
   return new Worker(new URL('../worker/measure.worker.ts', import.meta.url), { type: 'module' });
 }
 
+/**
+ * One session id for the whole test, both legs included.
+ *
+ * Attestations are bound to a session, so a run-both whose two legs used
+ * different ids would have half its tokens rejected as belonging to someone
+ * else's run, and every comparison would come out unverified.
+ */
+function newSession(): string {
+  return Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) =>
+    b.toString(16).padStart(2, '0'),
+  ).join('');
+}
+
 /** Run one endpoint to completion in a fresh worker. */
 function measure(
   mode: ModeId,
+  session: string,
   onEvent: (phase: Phase, mbps: number, progress: number) => void,
 ): { promise: Promise<RunResult>; cancel: () => void } {
   const worker = createWorker();
@@ -61,6 +75,7 @@ function measure(
       type: 'run',
       baseUrl: ENDPOINTS[mode].baseUrl,
       mode,
+      session,
     };
     worker.postMessage(request);
   });
@@ -85,6 +100,7 @@ export function useSpeedtest() {
     // Run both always goes BDIX first, then RAW. Fixed order so the ratio
     // means the same thing on every run and repeat runs stay comparable.
     const sequence: ModeId[] = kind === 'both' ? ['bdix', 'raw'] : [mode];
+    const session = newSession();
 
     setState({ ...IDLE, kind, running: true, active: sequence[0]!, phase: 'latency' });
 
@@ -94,7 +110,7 @@ export function useSpeedtest() {
       if (!aliveRef.current) return;
       setState((s) => ({ ...s, active: id, live: 0, progress: 0, phase: 'latency' }));
 
-      const { promise, cancel } = measure(id, (phase, mbps, progress) => {
+      const { promise, cancel } = measure(id, session, (phase, mbps, progress) => {
         if (!aliveRef.current) return;
         setState((s) => (s.active === id ? { ...s, phase, live: mbps, progress } : s));
       });

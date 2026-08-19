@@ -1,5 +1,6 @@
 import { createServer } from 'node:http';
 import { randomBytes } from 'node:crypto';
+import { sign } from '../../../packages/attest/src/index.ts';
 
 /**
  * RAW endpoint. Runs on the Singapore host.
@@ -37,7 +38,19 @@ function cors(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Timing-Allow-Origin', '*');
+  // Without this the browser cannot read the attestation and every result
+  // arrives unverified.
+  res.setHeader('Access-Control-Expose-Headers', 'X-Delta-Attest');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+}
+
+/** Sign what this request actually moved. See services/worker for the reasoning. */
+async function attest(url, direction, bytes) {
+  const secret = process.env.SIGNING_SECRET;
+  if (!secret) return null;
+  const session = url.searchParams.get('session');
+  if (!session || session.includes('.')) return null;
+  return sign({ session, direction, bytes, at: Date.now() }, secret);
 }
 
 async function serveDownload(url, res) {
@@ -47,6 +60,8 @@ async function serveDownload(url, res) {
   res.setHeader('Content-Type', 'application/octet-stream');
   res.setHeader('Content-Length', String(total));
   res.setHeader('Content-Encoding', 'identity');
+  const token = await attest(url, 'down', total);
+  if (token) res.setHeader('X-Delta-Attest', token);
   res.writeHead(200);
 
   let sent = 0;
@@ -98,7 +113,11 @@ const server = createServer(async (req, res) => {
           return;
         }
         if (res.destroyed) return;
-        res.writeHead(204, { 'X-Bytes-Received': String(received) });
+        const upToken = await attest(url, 'up', received);
+        res.writeHead(204, {
+          'X-Bytes-Received': String(received),
+          ...(upToken ? { 'X-Delta-Attest': upToken } : {}),
+        });
         return res.end();
       }
 

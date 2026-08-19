@@ -19,6 +19,8 @@ export type WorkerRequest = {
   type: 'run';
   baseUrl: string;
   mode: string;
+  /** Shared across both legs of a run-both so their attestations judge as one. */
+  session: string;
   transferMs?: number;
 };
 
@@ -36,6 +38,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
     const result = await run({
       baseUrl: e.data.baseUrl,
       mode: e.data.mode,
+      session: e.data.session,
       config: e.data.transferMs ? { transferMs: e.data.transferMs } : undefined,
       onEvent: (event) => post({ type: 'event', event }),
     });

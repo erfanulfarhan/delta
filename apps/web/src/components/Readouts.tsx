@@ -28,7 +28,9 @@ function Readout({ direction, value, live, done, accent, glowRgb }: ReadoutProps
     <div
       className="relative flex flex-1 flex-col items-center gap-2 px-4 py-6 transition-colors duration-500"
       style={{
-        background: live ? `rgba(${glowRgb}, 0.05)` : 'transparent',
+        background: live
+          ? `linear-gradient(180deg, rgba(${glowRgb}, 0.14), rgba(${glowRgb}, 0.02))`
+          : 'transparent',
       }}
     >
       <div className="flex items-center gap-2">
@@ -49,10 +51,10 @@ function Readout({ direction, value, live, done, accent, glowRgb }: ReadoutProps
 
       <AnimatedNumber
         value={value}
-        className="display text-[46px] leading-none font-medium transition-colors duration-500 sm:text-[56px]"
+        className="display text-[46px] leading-none font-bold transition-colors duration-500 sm:text-[56px]"
         style={{
           color: active ? 'var(--text)' : 'var(--faint)',
-          textShadow: live ? `0 0 44px rgba(${glowRgb}, 0.35)` : 'none',
+          textShadow: live ? `0 0 52px rgba(${glowRgb}, 0.55)` : 'none',
         }}
       />
 
@@ -89,7 +91,7 @@ export function Readouts({
   const downloadDone = phase === 'upload' || phase === 'done';
 
   return (
-    <div className="panel w-full max-w-xl overflow-hidden rounded-2xl">
+    <div className="panel panel-lit w-full max-w-xl overflow-hidden rounded-2xl">
       <div className="flex">
         <Readout
           direction="download"

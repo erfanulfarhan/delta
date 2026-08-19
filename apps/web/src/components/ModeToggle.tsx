@@ -6,11 +6,12 @@ interface Props {
   onChange: (mode: ModeId) => void;
   disabled: boolean;
   accent: string;
+  glowRgb: string;
 }
 
 const ORDER: ModeId[] = ['bdix', 'raw'];
 
-export function ModeToggle({ mode, onChange, disabled, accent }: Props) {
+export function ModeToggle({ mode, onChange, disabled, accent, glowRgb }: Props) {
   const index = ORDER.indexOf(mode);
 
   return (
@@ -25,7 +26,9 @@ export function ModeToggle({ mode, onChange, disabled, accent }: Props) {
         style={{
           width: 'calc(50% - 0.25rem)',
           transform: `translate3d(${index * 100}%, 0, 0)`,
-          background: 'var(--ink-700)',
+          background: `linear-gradient(180deg, rgba(${glowRgb}, 0.20), rgba(${glowRgb}, 0.06))`,
+          border: `1px solid rgba(${glowRgb}, 0.42)`,
+          boxShadow: `0 0 26px -6px rgba(${glowRgb}, 0.5)`,
           transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       />

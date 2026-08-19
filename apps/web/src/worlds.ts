@@ -1,24 +1,36 @@
 import type { ModeId } from './config';
 
 /**
- * The shell stays constant; only the accent and the measured distance change.
+ * One shell, two accents.
  *
- * `distance` is the one property that is genuinely about the subject rather
- * than decoration: BDIX traffic stops inside Bangladesh, RAW traffic crosses to
- * Singapore, and the distance line draws that difference to scale.
+ * `distance` is the only property here that is about the subject rather than
+ * decoration: local traffic stops inside Bangladesh, raw traffic crosses to
+ * Singapore, and the distance line draws that gap to scale.
  */
 export interface World {
   accent: string;
+  accent2: string;
   glowRgb: string;
   /** 0..1 along the baseline where the far endpoint sits. */
   distance: number;
-  /** Place name for the far endpoint. */
   farLabel: string;
 }
 
 export const WORLDS: Record<ModeId, World> = {
-  bdix: { accent: '#22D3A5', glowRgb: '34, 211, 165', distance: 0.22, farLabel: 'DHAKA' },
-  raw: { accent: '#5B8CFF', glowRgb: '91, 140, 255', distance: 0.94, farLabel: 'SINGAPORE' },
+  bdix: {
+    accent: '#2FF0A8',
+    accent2: '#7BF7B0',
+    glowRgb: '47, 240, 168',
+    distance: 0.22,
+    farLabel: 'DHAKA',
+  },
+  raw: {
+    accent: '#4BB8FF',
+    accent2: '#A97BFF',
+    glowRgb: '75, 184, 255',
+    distance: 0.94,
+    farLabel: 'SINGAPORE',
+  },
 };
 
 const hexToRgb = (hex: string): [number, number, number] => {
@@ -28,16 +40,20 @@ const hexToRgb = (hex: string): [number, number, number] => {
 
 const mix = (a: number, b: number, t: number) => Math.round(a + (b - a) * t);
 
+const mixHex = (x: string, y: string, t: number): string => {
+  const [r1, g1, b1] = hexToRgb(x);
+  const [r2, g2, b2] = hexToRgb(y);
+  return `rgb(${mix(r1, r2, t)}, ${mix(g1, g2, t)}, ${mix(b1, b2, t)})`;
+};
+
 export function lerpWorld(from: World, to: World, t: number): World {
   const [r1, g1, b1] = hexToRgb(from.accent);
   const [r2, g2, b2] = hexToRgb(to.accent);
-  const r = mix(r1, r2, t);
-  const g = mix(g1, g2, t);
-  const b = mix(b1, b2, t);
 
   return {
-    accent: `rgb(${r}, ${g}, ${b})`,
-    glowRgb: `${r}, ${g}, ${b}`,
+    accent: mixHex(from.accent, to.accent, t),
+    accent2: mixHex(from.accent2, to.accent2, t),
+    glowRgb: `${mix(r1, r2, t)}, ${mix(g1, g2, t)}, ${mix(b1, b2, t)}`,
     distance: from.distance + (to.distance - from.distance) * t,
     farLabel: t < 0.5 ? from.farLabel : to.farLabel,
   };

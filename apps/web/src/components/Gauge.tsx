@@ -4,6 +4,7 @@ import { AnimatedNumber } from './AnimatedNumber';
 interface Props {
   mbps: number;
   accent: string;
+  accent2: string;
   glowRgb: string;
   label: string;
   size?: number;
@@ -35,7 +36,7 @@ function arcPath(cx: number, cy: number, r: number, fromDeg: number, toDeg: numb
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y}`;
 }
 
-export function Gauge({ mbps, accent, glowRgb, label, size = 320 }: Props) {
+export function Gauge({ mbps, accent, accent2, glowRgb, label, size = 320 }: Props) {
   const arcRef = useRef<SVGPathElement>(null);
   const capRef = useRef<SVGCircleElement>(null);
   const cx = size / 2;
@@ -71,6 +72,10 @@ export function Gauge({ mbps, accent, glowRgb, label, size = 320 }: Props) {
     <div className="relative" style={{ width: size, height: size }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
         <defs>
+          <linearGradient id="gaugeArc" x1="0" y1="1" x2="1" y2="0">
+            <stop offset="0%" stopColor={accent} />
+            <stop offset="100%" stopColor={accent2} />
+          </linearGradient>
           <filter id="gaugeGlow" x="-60%" y="-60%" width="220%" height="220%">
             <feGaussianBlur stdDeviation="5" result="b" />
             <feMerge>
@@ -109,15 +114,15 @@ export function Gauge({ mbps, accent, glowRgb, label, size = 320 }: Props) {
           ref={arcRef}
           d={track}
           fill="none"
-          stroke={accent}
-          strokeWidth={6}
+          stroke="url(#gaugeArc)"
+          strokeWidth={7}
           strokeLinecap="round"
           filter="url(#gaugeGlow)"
           style={{ strokeDasharray: circumference, strokeDashoffset: circumference }}
         />
 
         {/* Leading cap, so the arc has a head you can track rather than an edge. */}
-        <circle ref={capRef} r={5} fill={accent} style={{ opacity: 0, filter: 'url(#gaugeGlow)' }} />
+        <circle ref={capRef} r={5.5} fill={accent2} style={{ opacity: 0, filter: 'url(#gaugeGlow)' }} />
       </svg>
 
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1.5">
@@ -129,7 +134,7 @@ export function Gauge({ mbps, accent, glowRgb, label, size = 320 }: Props) {
         </span>
         <AnimatedNumber
           value={mbps}
-          className="display text-[54px] leading-none font-semibold"
+          className="display text-[56px] leading-none font-bold"
           style={{ textShadow: `0 0 50px rgba(${glowRgb}, 0.4)` }}
         />
         <span className="mono text-[10px] tracking-[0.26em] text-[var(--muted)]">MBPS</span>

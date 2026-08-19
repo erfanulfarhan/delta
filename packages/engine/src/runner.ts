@@ -172,12 +172,12 @@ export async function run(options: RunOptions): Promise<RunResult> {
     collect,
   );
 
-  // Upload gets a wider window and a longer time constant than download.
-  // Progress events report bytes handed to the socket buffer rather than bytes
-  // acknowledged, and real upload throughput fluctuates more than download, so
-  // identical smoothing leaves this readout visibly restless.
+  // Same smoothing as download now. The upload phase spreads each progress
+  // jump into download-sized pieces before the meter sees it, so the input
+  // signal has the same shape and no longer needs heavier filtering to look
+  // calm. Matching them also means the two readouts move alike on screen.
   emit({ phase: 'upload', mbps: 0, progress: 0, downloadMbps: download.mbps });
-  const upMeter = liveMeter(1600, 1100);
+  const upMeter = liveMeter(900, 400);
   let lastUpEmit = 0;
   const upload = await measureUpload(
     cfg,

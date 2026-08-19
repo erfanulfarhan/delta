@@ -111,6 +111,7 @@ export default function App() {
       style={
         {
           '--accent': world.accent,
+          '--accent-2': world.accent2,
           '--glow': world.glowRgb,
         } as React.CSSProperties
       }
@@ -120,7 +121,7 @@ export default function App() {
       <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-2xl flex-col items-center gap-5 px-5 py-7">
         <header className="flex w-full items-center justify-between">
           <div className="flex items-baseline gap-2.5">
-            <span className="display text-[19px] font-semibold tracking-tight">Delta</span>
+            <span className="display accent-text text-[21px] font-bold tracking-tight">Delta</span>
             <span className="mono text-[9px] uppercase tracking-[0.24em] text-[var(--faint)]">
               Local vs Raw
             </span>
@@ -159,11 +160,13 @@ export default function App() {
               onChange={setMode}
               disabled={state.running}
               accent={world.accent}
+              glowRgb={world.glowRgb}
             />
 
             <Gauge
               mbps={gaugeValue}
               accent={world.accent}
+              accent2={world.accent2}
               glowRgb={world.glowRgb}
               label={state.running ? PHASE_LABEL[state.phase] ?? '' : ENDPOINTS[shownMode].label}
               size={288}
@@ -221,7 +224,11 @@ export default function App() {
                 onClick={() => start('single', mode)}
                 disabled={state.running}
                 className="relative cursor-pointer rounded-full px-10 py-3.5 text-[12px] font-semibold tracking-[0.16em] uppercase transition-transform duration-300 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40"
-                style={{ color: 'var(--ink-900)', background: world.accent }}
+                style={{
+                  color: '#06040f',
+                  background: `linear-gradient(120deg, ${world.accent}, ${world.accent2})`,
+                  boxShadow: `0 10px 34px -10px rgba(${world.glowRgb}, 0.65)`,
+                }}
               >
                 {state.running && (
                   <span

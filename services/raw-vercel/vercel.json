@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["sin1"],
   "functions": {
-    "api/*.ts": { "runtime": "nodejs22.x", "maxDuration": 60 }
+    "api/*.ts": { "maxDuration": 30 }
   }
 }

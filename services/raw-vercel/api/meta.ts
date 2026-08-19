@@ -1,27 +1,31 @@
-import { corsHeaders, preflight } from './_shared.js';
-
-export const config = { runtime: 'nodejs' };
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { cors, handledPreflight } from './_shared.js';
 
 /**
  * Reports where this function actually ran.
  *
  * Not decoration: if these functions are not pinned to Singapore the Raw
- * measurement is meaningless, and this is how the interface and the deploy
- * script can tell.
+ * measurement is meaningless, and this is how the deploy script and the
+ * interface can tell.
  */
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method === 'OPTIONS') return preflight(request);
+export default function handler(req: IncomingMessage, res: ServerResponse): void {
+  cors(req, res);
+  if (handledPreflight(req, res)) return;
 
-  return Response.json(
-    {
-      server: 'Singapore (sin1)',
-      region: process.env.VERCEL_REGION ?? 'unknown',
-      ip: request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '',
+  const forwarded = (req.headers['x-forwarded-for'] as string | undefined) ?? '';
+  const region = process.env.VERCEL_REGION ?? 'unknown';
+
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(
+    JSON.stringify({
+      server: region === 'sin1' ? 'Singapore (sin1)' : `Vercel ${region}`,
+      region,
+      colo: region,
+      ip: forwarded.split(',')[0]?.trim() ?? '',
       isp: '',
       asn: '',
       city: '',
-      country: request.headers.get('x-vercel-ip-country') ?? '',
-    },
-    { headers: corsHeaders(request) },
+      country: (req.headers['x-vercel-ip-country'] as string | undefined) ?? '',
+    }),
   );
 }

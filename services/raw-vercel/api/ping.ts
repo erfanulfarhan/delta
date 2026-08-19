@@ -1,8 +1,9 @@
-import { corsHeaders, preflight } from './_shared.js';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { cors, handledPreflight } from './_shared.js';
 
-export const config = { runtime: 'nodejs' };
-
-export default async function handler(request: Request): Promise<Response> {
-  if (request.method === 'OPTIONS') return preflight(request);
-  return new Response(null, { status: 204, headers: corsHeaders(request) });
+export default function handler(req: IncomingMessage, res: ServerResponse): void {
+  cors(req, res);
+  if (handledPreflight(req, res)) return;
+  res.writeHead(204);
+  res.end();
 }

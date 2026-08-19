@@ -1,6 +1,10 @@
 import { summarise } from './aggregate.js';
 import type { ByteSample, EngineConfig, TransferResult } from './types.js';
 
+// Progress jumps are sliced into pieces this size before being handed to the
+// meter, matching the granularity of download chunks.
+const SPREAD_BYTES = 64 * 1024;
+
 const MIN_CHUNK = 128 * 1024;
 // Capped well below the download ceiling on purpose. XHR upload progress
 // reports bytes handed to the OS socket buffer, not bytes acknowledged by the
@@ -70,14 +74,15 @@ export async function measureUpload(
   const expired = () =>
     performance.now() >= hardDeadline || (firstByteAt !== null && elapsed() >= cfg.transferMs);
 
-  const record = (bytes: number) => {
+  const recordAt = (bytes: number, at: number) => {
     if (bytes <= 0) return;
-    const now = performance.now();
-    if (firstByteAt === null) firstByteAt = now;
-    samples.push({ at: now - firstByteAt, bytes });
-    onSample(bytes, now - firstByteAt);
+    if (firstByteAt === null) firstByteAt = at;
+    const offset = Math.max(at - firstByteAt, 0);
+    samples.push({ at: offset, bytes });
+    onSample(bytes, offset);
   };
 
+  let lastProgressAt: number | null = null;
   const inflight = new Set<XMLHttpRequest>();
   const stopAll = () => {
     stopped = true;
@@ -94,8 +99,34 @@ export async function measureUpload(
       inflight.add(xhr);
 
       xhr.upload.onprogress = (e) => {
-        record(e.loaded - lastLoaded);
+        const delta = e.loaded - lastLoaded;
         lastLoaded = e.loaded;
+
+        // Split into fixed-size pieces spread across the interval since the last
+        // event, instead of recording one lump at one instant.
+        //
+        // This is what made upload stutter while download stayed smooth. A
+        // download arrives as a steady trickle of small chunks, but XHR upload
+        // progress fires occasionally and reports a large jump, so the sample
+        // stream feeding the meter was spiky at source. Slicing a 2 MB jump into
+        // 64 KB pieces spaced over the elapsed interval gives the meter the same
+        // shape of input the download path gives it, which is why both readouts
+        // now behave alike.
+        if (delta > 0) {
+          const now = performance.now();
+          const since = lastProgressAt === null ? 0 : now - lastProgressAt;
+          lastProgressAt = now;
+
+          const pieces = Math.max(1, Math.min(Math.ceil(delta / SPREAD_BYTES), 64));
+          const per = delta / pieces;
+          const step = pieces > 1 && since > 0 ? since / pieces : 0;
+          const base = now - since;
+
+          for (let i = 0; i < pieces; i += 1) {
+            recordAt(per, step > 0 ? base + step * (i + 1) : now);
+          }
+        }
+
         if (expired()) stopAll();
       };
       const finish = () => {

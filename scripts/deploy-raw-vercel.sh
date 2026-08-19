@@ -22,6 +22,10 @@ fi
 : "${VERCEL_TOKEN:?Set VERCEL_TOKEN in ~/.erfanul-secrets.env}"
 
 VERCEL="npx --yes vercel@latest"
+
+echo "==> 0/3  Vendoring the attestation module"
+"$ROOT/scripts/sync-attest.sh"
+
 cd "$ROOT/services/raw-vercel"
 
 echo "==> 1/3  Deploying to Vercel (region sin1)"

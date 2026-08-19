@@ -51,7 +51,7 @@ export function ServerCard({ meta, loading, mode, accent }: Props) {
   })();
 
   return (
-    <div className="panel w-full max-w-xl divide-y divide-[var(--line)] overflow-hidden rounded-xl">
+    <div className="panel w-full max-w-xl divide-y divide-[var(--line-soft)] overflow-hidden rounded-xl">
       <Row
         label="Server"
         value={loading ? 'checking…' : serverLine}

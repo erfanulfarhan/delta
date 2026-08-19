@@ -19,8 +19,12 @@ const MAX_POINTS = 240;
 export function Trace({ mbps, accent, glowRgb, active, height = 52 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pointsRef = useRef<number[]>([]);
-  const liveRef = useRef({ mbps, active });
-  liveRef.current = { mbps, active };
+  // Colours live in the ref alongside the live values so the render loop is
+  // never torn down. They change while the world transitions between modes,
+  // which happens mid-test during a run-both, and restarting the loop there
+  // would drop the sampler and interrupt the trace.
+  const liveRef = useRef({ mbps, active, accent, glowRgb });
+  liveRef.current = { mbps, active, accent, glowRgb };
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -66,8 +70,8 @@ export function Trace({ mbps, accent, glowRgb, active, height = 52 }: Props) {
         });
 
         const fill = ctx.createLinearGradient(0, 0, 0, height);
-        fill.addColorStop(0, `rgba(${glowRgb}, 0.2)`);
-        fill.addColorStop(1, `rgba(${glowRgb}, 0)`);
+        fill.addColorStop(0, `rgba(${liveRef.current.glowRgb}, 0.22)`);
+        fill.addColorStop(1, `rgba(${liveRef.current.glowRgb}, 0)`);
         ctx.lineTo((points.length - 1) * step, height);
         ctx.lineTo(0, height);
         ctx.closePath();
@@ -81,7 +85,7 @@ export function Trace({ mbps, accent, glowRgb, active, height = 52 }: Props) {
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         });
-        ctx.strokeStyle = accent;
+        ctx.strokeStyle = liveRef.current.accent;
         ctx.lineWidth = 1.4;
         ctx.stroke();
       }
@@ -95,7 +99,7 @@ export function Trace({ mbps, accent, glowRgb, active, height = 52 }: Props) {
       clearInterval(sampler);
       window.removeEventListener('resize', resize);
     };
-  }, [height, accent, glowRgb]);
+  }, [height]);
 
   return <canvas ref={canvasRef} style={{ height }} className="w-full" aria-hidden="true" />;
 }

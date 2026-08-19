@@ -39,6 +39,19 @@ function arcPath(cx: number, cy: number, r: number, fromDeg: number, toDeg: numb
 export function Gauge({ mbps, accent, accent2, glowRgb, label, size = 320 }: Props) {
   const arcRef = useRef<SVGPathElement>(null);
   const capRef = useRef<SVGCircleElement>(null);
+
+  // Both the target and the eased position live in refs.
+  //
+  // They must survive across renders, and the animation effect must NOT depend
+  // on `mbps`. With `mbps` in the dependency array the effect tore down and
+  // re-ran on every reading (20 a second), reinitialising the eased position to
+  // zero each time. The arc restarted from empty continuously, creeping up a
+  // few percent before being reset, so a 250 Mbps result sat visibly stuck near
+  // the bottom of the scale and juddered. It only looked correct once a run
+  // finished and the readings stopped changing.
+  const targetRef = useRef(mbps);
+  const currentRef = useRef(0);
+  targetRef.current = mbps;
   const cx = size / 2;
   const cy = size / 2;
   const r = size / 2 - 30;
@@ -47,12 +60,15 @@ export function Gauge({ mbps, accent, accent2, glowRgb, label, size = 320 }: Pro
 
   // Driven imperatively: this updates every frame during a measurement, and
   // re-rendering the tree at 60fps would compete with the work being measured.
+  // Note the dependencies are geometry only, so the loop runs uninterrupted for
+  // the whole test.
   useEffect(() => {
     let raf = 0;
-    let current = 0;
     const tick = () => {
-      const target = speedToFraction(mbps);
-      current += (target - current) * 0.07;
+      const target = speedToFraction(targetRef.current);
+      currentRef.current += (target - currentRef.current) * 0.07;
+      const current = currentRef.current;
+
       if (arcRef.current) {
         arcRef.current.style.strokeDashoffset = String(circumference * (1 - current));
       }
@@ -66,7 +82,7 @@ export function Gauge({ mbps, accent, accent2, glowRgb, label, size = 320 }: Pro
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [mbps, circumference, cx, cy, r]);
+  }, [circumference, cx, cy, r]);
 
   return (
     <div className="relative" style={{ width: size, height: size }}>

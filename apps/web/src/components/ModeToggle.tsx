@@ -1,5 +1,5 @@
 import type { ModeId } from '../config';
-import { ENDPOINTS } from '../config';
+import { AVAILABLE, ENDPOINTS } from '../config';
 
 interface Props {
   mode: ModeId;
@@ -31,12 +31,14 @@ export function ModeToggle({ mode, onChange, disabled, accent }: Props) {
       />
       {ORDER.map((id) => {
         const selected = id === mode;
+        const available = AVAILABLE[id];
         return (
           <button
             key={id}
             role="radio"
             aria-checked={selected}
-            disabled={disabled}
+            disabled={disabled || !available}
+            title={available ? undefined : 'This endpoint is not deployed yet'}
             onClick={() => onChange(id)}
             className="relative z-10 min-w-[128px] cursor-pointer rounded-lg px-6 py-2 text-center transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -47,7 +49,7 @@ export function ModeToggle({ mode, onChange, disabled, accent }: Props) {
               {ENDPOINTS[id].label}
             </span>
             <span className="mt-0.5 block text-[10px] text-[var(--faint)]">
-              {ENDPOINTS[id].shortLabel}
+              {available ? ENDPOINTS[id].shortLabel : 'not deployed'}
             </span>
           </button>
         );

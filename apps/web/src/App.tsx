@@ -15,7 +15,7 @@ import { appendHistory, loadHistory, type HistoryEntry } from './lib/history';
 import { saveResult } from './lib/results';
 import { SHARING_ENABLED } from './lib/supabase';
 import { navigate, parseRoute, type Route } from './lib/route';
-import { ENDPOINTS, USING_MOCKS, type ModeId } from './config';
+import { AVAILABLE, BOTH_AVAILABLE, ENDPOINTS, USING_MOCKS, type ModeId } from './config';
 
 const PHASE_LABEL: Record<string, string> = {
   idle: 'Ready',
@@ -27,7 +27,9 @@ const PHASE_LABEL: Record<string, string> = {
 };
 
 export default function App() {
-  const [mode, setMode] = useState<ModeId>('bdix');
+  // Start on an endpoint that exists, so a half-deployed site is usable rather
+  // than opening on a disabled control.
+  const [mode, setMode] = useState<ModeId>(AVAILABLE.bdix ? 'bdix' : 'raw');
   const reducedMotion = useReducedMotion();
   const { state, start, reset } = useSpeedtest();
 
@@ -126,6 +128,13 @@ export default function App() {
           )}
         </header>
 
+        {!USING_MOCKS && !BOTH_AVAILABLE && (
+          <div className="mono w-full rounded-lg border border-[var(--line)] bg-white/[0.02] px-4 py-2.5 text-center text-[10px] leading-relaxed text-[var(--muted)]">
+            {AVAILABLE.bdix ? 'Raw' : 'Local'} is not deployed yet, so only{' '}
+            {AVAILABLE.bdix ? 'local' : 'raw'} speed can be measured. The comparison needs both.
+          </div>
+        )}
+
         {USING_MOCKS && (
           <div className="mono w-full rounded-lg border border-amber-400/20 bg-amber-400/5 px-4 py-2.5 text-center text-[10px] leading-relaxed text-amber-200/70">
             Endpoints point at localhost. These figures come from the local mock server and measure
@@ -209,7 +218,8 @@ export default function App() {
               </button>
               <button
                 onClick={() => start('both', mode)}
-                disabled={state.running}
+                disabled={state.running || !BOTH_AVAILABLE}
+                title={BOTH_AVAILABLE ? undefined : 'Needs both endpoints deployed'}
                 className="panel cursor-pointer rounded-full px-7 py-3.5 text-[12px] tracking-[0.16em] text-[var(--muted)] uppercase transition-colors hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Run both

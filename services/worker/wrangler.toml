@@ -1,4 +1,4 @@
-name = "speedtest-bdix"
+name = "delta-local"
 main = "src/index.js"
 compatibility_date = "2026-08-01"
 
@@ -7,5 +7,5 @@ compatibility_date = "2026-08-01"
 workers_dev = true
 
 [vars]
-SERVER_LABEL = "Cloudflare Dhaka PoP"
+SERVER_LABEL = "Cloudflare edge (local peering)"
 ALLOWED_ORIGINS = "*"

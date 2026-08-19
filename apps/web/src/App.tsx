@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Gauge } from './components/Gauge';
+import { GoButton } from './components/GoButton';
 import { ModeToggle } from './components/ModeToggle';
 import { DistanceLine } from './components/DistanceLine';
 import { Readouts } from './components/Readouts';
@@ -17,7 +18,15 @@ import { appendHistory, loadHistory, type HistoryEntry } from './lib/history';
 import { saveResult } from './lib/results';
 import { SHARING_ENABLED } from './lib/supabase';
 import { navigate, parseRoute, type Route } from './lib/route';
-import { AVAILABLE, BOTH_AVAILABLE, ENDPOINTS, USING_MOCKS, type ModeId } from './config';
+import {
+  AVAILABLE,
+  BOTH_AVAILABLE,
+  DEFAULT_RAW_SERVER,
+  ENDPOINTS,
+  USING_MOCKS,
+  type ModeId,
+} from './config';
+import { ServerPicker } from './components/ServerPicker';
 
 const PHASE_LABEL: Record<string, string> = {
   idle: 'Ready',
@@ -35,6 +44,7 @@ export default function App() {
   const reducedMotion = useReducedMotion();
   const { state, start, reset } = useSpeedtest();
 
+  const [rawServerId, setRawServerId] = useState<string>(DEFAULT_RAW_SERVER);
   const [route, setRoute] = useState<Route>(() => parseRoute(window.location.pathname));
   const [history, setHistory] = useState<HistoryEntry[]>(() => loadHistory());
   const [share, setShare] = useState<{ id: string | null; verified: boolean; saving: boolean }>({
@@ -81,7 +91,7 @@ export default function App() {
   }, [reset]);
 
   const shownMode = state.active ?? mode;
-  const { meta: liveMeta, loading: metaLoading } = useMeta(mode);
+  const { meta: liveMeta, loading: metaLoading } = useMeta(mode, rawServerId);
   const world = useWorld(shownMode, reducedMotion);
 
   const bothDone = state.kind === 'both' && state.results.bdix && state.results.raw;
@@ -91,6 +101,9 @@ export default function App() {
   // download to upload is visible rather than something you have to infer.
   const gaugeValue = state.running ? state.live : (result?.downloadMbps ?? 0);
   const direction = state.phase === 'upload' ? 'up' : state.running ? 'down' : 'idle';
+
+  // Go occupies the dial until a run starts, and again once results are cleared.
+  const showGoInDial = !state.running && !result;
 
   // Falls back to the settled figure the engine reports once the download phase
   // ends, not to zero. Otherwise the measured download number drains away to
@@ -169,7 +182,19 @@ export default function App() {
               accent2={world.accent2}
               glowRgb={world.glowRgb}
               label={state.running ? PHASE_LABEL[state.phase] ?? '' : ENDPOINTS[shownMode].label}
-              size={288}
+              size={300}
+              armed={state.running}
+              center={
+                showGoInDial ? (
+                  <GoButton
+                    onClick={() => start('single', mode, rawServerId)}
+                    disabled={state.running}
+                    accent={world.accent}
+                    accent2={world.accent2}
+                    glowRgb={world.glowRgb}
+                  />
+                ) : undefined
+              }
             />
 
             <Readouts
@@ -206,6 +231,14 @@ export default function App() {
               )}
             </div>
 
+            <ServerPicker
+              selected={rawServerId}
+              onSelect={setRawServerId}
+              disabled={state.running}
+              accent={world.accent}
+              glowRgb={world.glowRgb}
+            />
+
             {/* Shown before anything is pressed: which server will be used, and
                 what it sees of your connection. */}
             <ServerCard
@@ -213,6 +246,7 @@ export default function App() {
               loading={metaLoading && !meta}
               mode={shownMode}
               accent={world.accent}
+              rawServerId={rawServerId}
             />
 
             {finished && state.kind === 'single' && (
@@ -220,30 +254,32 @@ export default function App() {
             )}
 
             <div className="flex flex-wrap items-center justify-center gap-3">
+              {!showGoInDial && (
+                <button
+                  onClick={() => start('single', mode, rawServerId)}
+                  disabled={state.running}
+                  className="relative cursor-pointer rounded-full px-9 py-3 text-[12px] font-semibold tracking-[0.16em] uppercase transition-transform duration-300 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40"
+                  style={{
+                    color: '#06040f',
+                    background: `linear-gradient(120deg, ${world.accent}, ${world.accent2})`,
+                    boxShadow: `0 10px 34px -10px rgba(${world.glowRgb}, 0.65)`,
+                  }}
+                >
+                  {state.running && (
+                    <span
+                      className="go-ring absolute inset-0 rounded-full"
+                      style={{ border: `1px solid ${world.accent}` }}
+                      aria-hidden="true"
+                    />
+                  )}
+                  {state.running ? 'Testing' : 'Test again'}
+                </button>
+              )}
               <button
-                onClick={() => start('single', mode)}
-                disabled={state.running}
-                className="relative cursor-pointer rounded-full px-10 py-3.5 text-[12px] font-semibold tracking-[0.16em] uppercase transition-transform duration-300 hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-40"
-                style={{
-                  color: '#06040f',
-                  background: `linear-gradient(120deg, ${world.accent}, ${world.accent2})`,
-                  boxShadow: `0 10px 34px -10px rgba(${world.glowRgb}, 0.65)`,
-                }}
-              >
-                {state.running && (
-                  <span
-                    className="go-ring absolute inset-0 rounded-full"
-                    style={{ border: `1px solid ${world.accent}` }}
-                    aria-hidden="true"
-                  />
-                )}
-                {state.running ? 'Testing' : 'Go'}
-              </button>
-              <button
-                onClick={() => start('both', mode)}
+                onClick={() => start('both', mode, rawServerId)}
                 disabled={state.running || !BOTH_AVAILABLE}
                 title={BOTH_AVAILABLE ? undefined : 'Needs both endpoints deployed'}
-                className="panel cursor-pointer rounded-full px-7 py-3.5 text-[12px] tracking-[0.16em] text-[var(--muted)] uppercase transition-colors hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-40"
+                className="panel cursor-pointer rounded-full px-7 py-3 text-[12px] tracking-[0.16em] text-[var(--muted)] uppercase transition-colors hover:text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Run both
               </button>

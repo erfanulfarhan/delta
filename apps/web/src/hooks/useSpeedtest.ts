@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Phase, RunResult } from '@speedtest/engine';
-import { ENDPOINTS, type ModeId } from '../config';
+import { baseUrlFor, type ModeId } from '../config';
 import type { WorkerRequest, WorkerResponse } from '../worker/measure.worker';
 
 export type TestKind = 'single' | 'both';
@@ -53,6 +53,7 @@ function newSession(): string {
 function measure(
   mode: ModeId,
   session: string,
+  baseUrl: string,
   onEvent: (phase: Phase, mbps: number, progress: number, downloadMbps?: number) => void,
 ): { promise: Promise<RunResult>; cancel: () => void } {
   const worker = createWorker();
@@ -77,7 +78,7 @@ function measure(
 
     const request: WorkerRequest = {
       type: 'run',
-      baseUrl: ENDPOINTS[mode].baseUrl,
+      baseUrl,
       mode,
       session,
     };
@@ -100,7 +101,7 @@ export function useSpeedtest() {
     };
   }, []);
 
-  const start = useCallback(async (kind: TestKind, mode: ModeId) => {
+  const start = useCallback(async (kind: TestKind, mode: ModeId, rawServerId: string) => {
     // Run both always goes BDIX first, then RAW. Fixed order so the ratio
     // means the same thing on every run and repeat runs stay comparable.
     const sequence: ModeId[] = kind === 'both' ? ['bdix', 'raw'] : [mode];
@@ -121,7 +122,8 @@ export function useSpeedtest() {
         phase: 'latency',
       }));
 
-      const { promise, cancel } = measure(id, session, (phase, mbps, progress, downloadMbps) => {
+      const url = baseUrlFor(id, rawServerId);
+      const { promise, cancel } = measure(id, session, url, (phase, mbps, progress, downloadMbps) => {
         if (!aliveRef.current) return;
         setState((s) =>
           s.active === id

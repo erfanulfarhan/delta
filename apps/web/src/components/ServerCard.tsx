@@ -1,11 +1,12 @@
 import type { Meta } from '@speedtest/engine';
-import { ENDPOINTS, type ModeId } from '../config';
+import { ENDPOINTS, rawServer, type ModeId } from '../config';
 
 interface Props {
   meta: Meta | null;
   loading: boolean;
   mode: ModeId;
   accent: string;
+  rawServerId: string;
 }
 
 /** Cloudflare airport codes worth naming; anything else shows the raw code. */
@@ -40,10 +41,14 @@ function Row({ label, value, hint, accent }: {
   );
 }
 
-export function ServerCard({ meta, loading, mode, accent }: Props) {
+export function ServerCard({ meta, loading, mode, accent, rawServerId }: Props) {
   const endpoint = ENDPOINTS[mode];
 
   const serverLine = (() => {
+    if (mode === 'raw') {
+      const s = rawServer(rawServerId);
+      return `${s.city} (${s.id})`;
+    }
     if (!meta) return endpoint.label;
     const colo = (meta as Meta & { colo?: string }).colo;
     if (!colo) return meta.server;

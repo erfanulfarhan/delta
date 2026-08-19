@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { AnimatedNumber } from './AnimatedNumber';
 
 interface Props {
@@ -8,6 +8,16 @@ interface Props {
   glowRgb: string;
   label: string;
   size?: number;
+  /**
+   * Rendered in the centre of the dial instead of the readout.
+   *
+   * The Go control lives inside the dial, the way a speedometer's own face
+   * carries its markings: the thing you press and the thing you then read
+   * occupy the same place, so attention never has to move.
+   */
+  center?: ReactNode;
+  /** True once a test has started, which drives the dial's entrance. */
+  armed?: boolean;
 }
 
 const START_ANGLE = 225;
@@ -36,7 +46,16 @@ function arcPath(cx: number, cy: number, r: number, fromDeg: number, toDeg: numb
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y}`;
 }
 
-export function Gauge({ mbps, accent, accent2, glowRgb, label, size = 320 }: Props) {
+export function Gauge({
+  mbps,
+  accent,
+  accent2,
+  glowRgb,
+  label,
+  size = 320,
+  center,
+  armed = false,
+}: Props) {
   const arcRef = useRef<SVGPathElement>(null);
   const capRef = useRef<SVGCircleElement>(null);
 
@@ -86,7 +105,13 @@ export function Gauge({ mbps, accent, accent2, glowRgb, label, size = 320 }: Pro
 
   return (
     <div className="relative" style={{ width: size, height: size }}>
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden="true">
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        aria-hidden="true"
+        className={armed ? 'dial-in' : undefined}
+      >
         <defs>
           <linearGradient id="gaugeArc" x1="0" y1="1" x2="1" y2="0">
             <stop offset="0%" stopColor={accent} />
@@ -141,7 +166,29 @@ export function Gauge({ mbps, accent, accent2, glowRgb, label, size = 320 }: Pro
         <circle ref={capRef} r={5.5} fill={accent2} style={{ opacity: 0, filter: 'url(#gaugeGlow)' }} />
       </svg>
 
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1.5">
+      {/* Both centre layers are always mounted and cross-faded, so pressing Go
+          reads as the readout emerging from the control rather than one element
+          being replaced by another. */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div
+          className="transition-all duration-500 ease-out"
+          style={{
+            opacity: center ? 1 : 0,
+            transform: center ? 'scale(1)' : 'scale(0.82)',
+            pointerEvents: center ? 'auto' : 'none',
+          }}
+        >
+          {center}
+        </div>
+      </div>
+
+      <div
+        className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1.5 transition-all duration-500 ease-out"
+        style={{
+          opacity: center ? 0 : 1,
+          transform: center ? 'scale(1.12)' : 'scale(1)',
+        }}
+      >
         <span
           className="mono text-[9px] uppercase tracking-[0.3em]"
           style={{ color: `rgba(${glowRgb}, 0.8)` }}

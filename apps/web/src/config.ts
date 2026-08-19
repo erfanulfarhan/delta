@@ -52,9 +52,63 @@ export const USING_MOCKS =
  * behaviour, because it would produce plausible numbers for a path nobody
  * measured. An endpoint with no URL is reported as unavailable instead.
  */
+/**
+ * Selectable locations for the Raw side.
+ *
+ * Every one of these is a server this project operates, pinned to that region
+ * and verified at deploy time to actually run there. None of them are Ookla's
+ * servers: the ones speedtest.net offers (AmberIT, NextGen and the rest) are
+ * Ookla infrastructure hosted by those ISPs, they do not speak this protocol,
+ * and pointing a browser at them would be using someone else's servers without
+ * their agreement.
+ *
+ * Local stays fixed at Dhaka. It is not a choice in the same sense: the whole
+ * point of that side is the one path that never leaves the country.
+ */
+export interface RawServer {
+  id: string;
+  city: string;
+  country: string;
+  flag: string;
+  baseUrl: string;
+}
+
+export const RAW_SERVERS: RawServer[] = [
+  {
+    id: 'sin1',
+    city: 'Singapore',
+    country: 'SG',
+    flag: '🇸🇬',
+    baseUrl: 'https://delta-sin1.vercel.app/api',
+  },
+  {
+    id: 'bom1',
+    city: 'Mumbai',
+    country: 'IN',
+    flag: '🇮🇳',
+    baseUrl: 'https://delta-bom1.vercel.app/api',
+  },
+  {
+    id: 'hnd1',
+    city: 'Tokyo',
+    country: 'JP',
+    flag: '🇯🇵',
+    baseUrl: 'https://delta-hnd1.vercel.app/api',
+  },
+];
+
+export const DEFAULT_RAW_SERVER = 'sin1';
+
+export const rawServer = (id: string): RawServer =>
+  RAW_SERVERS.find((s) => s.id === id) ?? RAW_SERVERS[0]!;
+
+/** Base URL for a mode, honouring the chosen Raw location. */
+export const baseUrlFor = (mode: ModeId, rawServerId: string): string =>
+  (mode === 'raw' ? rawServer(rawServerId).baseUrl : ENDPOINTS.bdix.baseUrl).replace(/\/$/, '');
+
 export const AVAILABLE: Record<ModeId, boolean> = {
   bdix: Boolean(env.VITE_BDIX_URL) || import.meta.env.DEV,
-  raw: Boolean(env.VITE_RAW_URL) || import.meta.env.DEV,
+  raw: true, // its own servers are deployed and verified per region
 };
 
 export const BOTH_AVAILABLE = AVAILABLE.bdix && AVAILABLE.raw;

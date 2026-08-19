@@ -1,0 +1,17 @@
+{
+  "name": "speedtest",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/*", "apps/*", "services/*"],
+  "scripts": {
+    "dev": "npm run dev -w @speedtest/web",
+    "mock": "npm run start -w @speedtest/mock",
+    "build": "npm run build -w @speedtest/web",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

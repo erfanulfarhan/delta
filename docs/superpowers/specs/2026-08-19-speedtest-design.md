@@ -104,15 +104,16 @@ requests metadata once per session rather than per mode.
 
 A run is four phases in sequence: latency, download, upload, aggregate.
 
-**Latency.** N sequential `GET /ping` requests. Ping is the median round trip
+**Latency.** 10 sequential `GET /ping` requests, the first discarded as a
+connection warmup. Ping is the median round trip
 time. Jitter is the mean absolute deviation of successive differences between
 round trip times. Sequential rather than parallel, since concurrent requests
 queue against each other and inflate both figures.
 
-**Download.** Four to six concurrent `fetch` streams, read through a
+**Download.** 6 concurrent `fetch` streams, read through a
 `ReadableStream` reader, with bytes and timestamps accumulated as chunks arrive.
 
-**Upload.** Four to six concurrent POSTs of pre generated random blobs, tracked
+**Upload.** 6 concurrent POSTs of pre generated random blobs, tracked
 via `XMLHttpRequest.upload.onprogress`. `fetch` still provides no upload progress
 events in most browsers, so XHR is the only route to a live upload curve. This is
 a constraint, not a preference.
@@ -122,7 +123,8 @@ a constraint, not a preference.
 ### Decisions that determine accuracy
 
 **Fixed duration, not fixed payload size.** Each transfer phase runs for a fixed
-wall clock window of roughly eight seconds. A fixed payload size cannot serve
+wall clock window of 8 seconds, measured from first byte received rather than
+from request dispatch. A fixed payload size cannot serve
 both ends of the range: it takes a minute on a 5 Mbps connection and completes
 in 200 ms on a 900 Mbps one, which is too short to measure anything. Chunk size
 adapts within the window based on observed throughput.
@@ -133,7 +135,8 @@ measurement systematically understates fast connections.
 
 **The ramp is discarded.** TCP slow start guarantees the opening of every
 transfer is slower than the link. Samples are bucketed into 100 ms windows, the
-opening window is dropped, and the result is a trimmed mean over what remains.
+opening 20 percent of windows is dropped, and the result is the mean of what
+remains after discarding the slowest 10 percent and the fastest 10 percent.
 Reporting a raw average across the whole transfer understates every connection
 and understates fast ones most.
 

@@ -88,7 +88,10 @@ export interface EngineConfig {
 
 export const DEFAULT_CONFIG: Omit<EngineConfig, 'baseUrl' | 'mode' | 'session'> = {
   transferMs: 8000,
-  streams: 6,
+  // Eight rather than six. With a ~16ms RTT to the edge and a 400 Mbps line the
+  // bandwidth-delay product is around 760 KB, so more concurrent flows fill the
+  // pipe sooner; speedtest.net opens a comparable number.
+  streams: 8,
   pingSamples: 10,
   bucketMs: 100,
   rampFraction: 0.2,

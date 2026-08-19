@@ -51,27 +51,49 @@ export async function fetchMeta(baseUrl: string, signal?: AbortSignal): Promise<
  * result or a gauge that barely moves.
  */
 export function liveMeter(windowMs = 900, tauMs = 400) {
-  const recent: Array<{ at: number; bytes: number }> = [];
+  // Running sum over a sliding window, maintained incrementally.
+  //
+  // The obvious version recomputes the window total with reduce() on every
+  // sample and drops expired entries with shift(). Both are O(n) in the window
+  // size, and this runs inside the measurement loop at roughly 800 samples a
+  // second against a window holding hundreds of entries: over half a million
+  // operations per second spent measuring, which slows the very transfer being
+  // measured. A running total and a read cursor make it O(1) amortised.
+  const times: number[] = [];
+  const sizes: number[] = [];
+  let head = 0;
+  let total = 0;
   let ema: number | null = null;
   let lastAt: number | null = null;
 
   return (bytes: number, atMs: number): number => {
-    recent.push({ at: atMs, bytes });
-    const cutoff = atMs - windowMs;
-    while (recent.length > 0 && recent[0]!.at < cutoff) recent.shift();
-    const total = recent.reduce((acc, s) => acc + s.bytes, 0);
+    times.push(atMs);
+    sizes.push(bytes);
+    total += bytes;
 
-    // Always divide by the whole window, never by the elapsed time or by the
-    // gap between surviving samples. Both of those shrink early in a phase or
-    // between bursts, and dividing megabytes by a few milliseconds reports
-    // thousands of Mbps. A partially filled window simply reads low and climbs,
-    // which looks like the ramp it actually is.
+    const cutoff = atMs - windowMs;
+    while (head < times.length && times[head]! < cutoff) {
+      total -= sizes[head]!;
+      head += 1;
+    }
+
+    // Compact occasionally so the discarded prefix cannot grow without bound
+    // across a long phase.
+    if (head > 4096) {
+      times.splice(0, head);
+      sizes.splice(0, head);
+      head = 0;
+    }
+
+    // Always divide by the whole window, never by elapsed time or by the gap
+    // between surviving samples. Both shrink early in a phase or between
+    // bursts, and dividing megabytes by a few milliseconds reports thousands of
+    // Mbps. A partially filled window reads low and climbs, which is the ramp.
     const instant = (total * 8) / (windowMs / 1000) / 1_000_000;
 
     // Time-constant smoothing rather than a fixed fraction per sample. Upload
     // progress events fire far more often than download chunks arrive, so a
-    // per-sample factor smooths the two phases by wildly different amounts and
-    // barely touches upload at all.
+    // per-sample factor smooths the two phases by wildly different amounts.
     const dt = lastAt === null ? windowMs : Math.max(atMs - lastAt, 0);
     lastAt = atMs;
     const alpha = tauMs <= 0 ? 1 : 1 - Math.exp(-dt / tauMs);

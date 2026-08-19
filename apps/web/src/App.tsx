@@ -6,6 +6,8 @@ import { Readouts } from './components/Readouts';
 import { Trace } from './components/Trace';
 import { Comparison } from './components/Comparison';
 import { useReducedMotion, useWorld } from './hooks/useWorld';
+import { useMeta } from './hooks/useMeta';
+import { ServerCard } from './components/ServerCard';
 import { useSpeedtest } from './hooks/useSpeedtest';
 import { SharedResultView } from './components/SharedResultView';
 import { Leaderboard } from './components/Leaderboard';
@@ -79,6 +81,7 @@ export default function App() {
   }, [reset]);
 
   const shownMode = state.active ?? mode;
+  const { meta: liveMeta, loading: metaLoading } = useMeta(mode);
   const world = useWorld(shownMode, reducedMotion);
 
   const bothDone = state.kind === 'both' && state.results.bdix && state.results.raw;
@@ -89,14 +92,18 @@ export default function App() {
   const gaugeValue = state.running ? state.live : (result?.downloadMbps ?? 0);
   const direction = state.phase === 'upload' ? 'up' : state.running ? 'down' : 'idle';
 
-  const downloadValue = state.phase === 'download' && state.running
-    ? state.live
-    : (result?.downloadMbps ?? 0);
+  // Falls back to the settled figure the engine reports once the download phase
+  // ends, not to zero. Otherwise the measured download number drains away to
+  // nothing while the upload phase runs, which reads as the display breaking.
+  const downloadValue =
+    state.phase === 'download' && state.running
+      ? state.live
+      : (result?.downloadMbps ?? state.settledDownload);
   const uploadValue = state.phase === 'upload' && state.running
     ? state.live
     : (result?.uploadMbps ?? 0);
 
-  const meta = result?.meta;
+  const meta = result?.meta ?? liveMeta;
 
   return (
     <div
@@ -195,6 +202,15 @@ export default function App() {
                 </div>
               )}
             </div>
+
+            {/* Shown before anything is pressed: which server will be used, and
+                what it sees of your connection. */}
+            <ServerCard
+              meta={meta}
+              loading={metaLoading && !meta}
+              mode={shownMode}
+              accent={world.accent}
+            />
 
             {finished && state.kind === 'single' && (
               <ShareBar shortId={share.id} verified={share.verified} saving={share.saving} />

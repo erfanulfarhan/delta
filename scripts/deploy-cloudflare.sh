@@ -15,7 +15,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SECRETS="${HOME}/.erfanul-secrets.env"
-PROJECT="delta"
+PROJECT="deltaspeed"
 
 if [[ -f "$SECRETS" ]]; then
   set -a

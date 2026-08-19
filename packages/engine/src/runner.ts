@@ -10,6 +10,15 @@ export interface RunEvent {
   mbps: number;
   /** 0..1 through the current phase. */
   progress: number;
+  /**
+   * The settled download figure, once that phase has finished.
+   *
+   * Carried through the event stream because the interface shows download and
+   * upload side by side throughout: without it the download readout has nothing
+   * to display during the upload phase and falls back to zero, so a measured
+   * 128 Mbps visibly drains away to nothing while upload runs.
+   */
+  downloadMbps?: number;
 }
 
 export interface RunOptions {
@@ -79,6 +88,20 @@ export function liveMeter(windowMs = 900, tauMs = 400) {
  * plus a label, which is the whole reason a third location could be added
  * later as a config entry rather than a code change.
  */
+/**
+ * How often progress reaches the interface.
+ *
+ * Emitting per chunk was throttling the measurement itself. Every sample
+ * crossed a postMessage boundary out of the Web Worker and triggered a React
+ * state update, and at 50 MB/s with 64 KB chunks that is roughly 800 messages
+ * and 800 re-renders per second. The result was a real 300 Mbps link reporting
+ * 137. The meter still sees every byte; only the reporting is rationed.
+ *
+ * 20 updates a second is far more than the eye needs, since the gauge and the
+ * numerals interpolate between updates on their own animation frame.
+ */
+const EMIT_INTERVAL_MS = 50;
+
 export async function run(options: RunOptions): Promise<RunResult> {
   const session =
     options.session ??
@@ -107,34 +130,52 @@ export async function run(options: RunOptions): Promise<RunResult> {
   ]);
 
   emit({ phase: 'download', mbps: 0, progress: 0 });
-  const downMeter = liveMeter();
+  const downMeter = liveMeter(900, 400);
+  let lastDownEmit = 0;
   const download = await measureDownload(
     cfg,
-    (bytes, atMs) =>
+    (bytes, atMs) => {
+      // Every sample feeds the meter; only some reach the interface.
+      const mbps = downMeter(bytes, atMs);
+      const now = performance.now();
+      if (now - lastDownEmit < EMIT_INTERVAL_MS) return;
+      lastDownEmit = now;
       emit({
         phase: 'download',
-        mbps: downMeter(bytes, atMs),
+        mbps,
         progress: Math.min(atMs / cfg.transferMs, 1),
-      }),
+      });
+    },
     options.signal,
     collect,
   );
 
-  emit({ phase: 'upload', mbps: 0, progress: 0 });
-  const upMeter = liveMeter();
+  // Upload gets a wider window and a longer time constant than download.
+  // Progress events report bytes handed to the socket buffer rather than bytes
+  // acknowledged, and real upload throughput fluctuates more than download, so
+  // identical smoothing leaves this readout visibly restless.
+  emit({ phase: 'upload', mbps: 0, progress: 0, downloadMbps: download.mbps });
+  const upMeter = liveMeter(1600, 1100);
+  let lastUpEmit = 0;
   const upload = await measureUpload(
     cfg,
-    (bytes, atMs) =>
+    (bytes, atMs) => {
+      const mbps = upMeter(bytes, atMs);
+      const now = performance.now();
+      if (now - lastUpEmit < EMIT_INTERVAL_MS) return;
+      lastUpEmit = now;
       emit({
         phase: 'upload',
-        mbps: upMeter(bytes, atMs),
+        mbps,
         progress: Math.min(atMs / cfg.transferMs, 1),
-      }),
+        downloadMbps: download.mbps,
+      });
+    },
     options.signal,
     collect,
   );
 
-  emit({ phase: 'done', mbps: download.mbps, progress: 1 });
+  emit({ phase: 'done', mbps: download.mbps, progress: 1, downloadMbps: download.mbps });
 
   return {
     mode: cfg.mode,

@@ -9,6 +9,8 @@ export interface SpeedtestState {
   phase: Phase;
   /** Live throughput for the gauge, Mbps. */
   live: number;
+  /** Settled download figure for the endpoint being measured, once known. */
+  settledDownload: number;
   progress: number;
   /** Which endpoint is being measured right now. */
   active: ModeId | null;
@@ -21,6 +23,7 @@ export interface SpeedtestState {
 const IDLE: SpeedtestState = {
   phase: 'idle',
   live: 0,
+  settledDownload: 0,
   progress: 0,
   active: null,
   results: {},
@@ -50,14 +53,15 @@ function newSession(): string {
 function measure(
   mode: ModeId,
   session: string,
-  onEvent: (phase: Phase, mbps: number, progress: number) => void,
+  onEvent: (phase: Phase, mbps: number, progress: number, downloadMbps?: number) => void,
 ): { promise: Promise<RunResult>; cancel: () => void } {
   const worker = createWorker();
 
   const promise = new Promise<RunResult>((resolve, reject) => {
     worker.onmessage = (e: MessageEvent<WorkerResponse>) => {
       const msg = e.data;
-      if (msg.type === 'event') onEvent(msg.event.phase, msg.event.mbps, msg.event.progress);
+      if (msg.type === 'event')
+        onEvent(msg.event.phase, msg.event.mbps, msg.event.progress, msg.event.downloadMbps);
       else if (msg.type === 'result') {
         worker.terminate();
         resolve(msg.result);
@@ -108,11 +112,28 @@ export function useSpeedtest() {
 
     for (const id of sequence) {
       if (!aliveRef.current) return;
-      setState((s) => ({ ...s, active: id, live: 0, progress: 0, phase: 'latency' }));
+      setState((s) => ({
+        ...s,
+        active: id,
+        live: 0,
+        settledDownload: 0,
+        progress: 0,
+        phase: 'latency',
+      }));
 
-      const { promise, cancel } = measure(id, session, (phase, mbps, progress) => {
+      const { promise, cancel } = measure(id, session, (phase, mbps, progress, downloadMbps) => {
         if (!aliveRef.current) return;
-        setState((s) => (s.active === id ? { ...s, phase, live: mbps, progress } : s));
+        setState((s) =>
+          s.active === id
+            ? {
+                ...s,
+                phase,
+                live: mbps,
+                progress,
+                settledDownload: downloadMbps ?? s.settledDownload,
+              }
+            : s,
+        );
       });
       cancelRef.current = cancel;
 

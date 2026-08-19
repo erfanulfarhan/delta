@@ -190,7 +190,6 @@ export default function App() {
                     onClick={() => start('single', mode, rawServerId)}
                     disabled={state.running}
                     accent={world.accent}
-                    accent2={world.accent2}
                     glowRgb={world.glowRgb}
                   />
                 ) : undefined

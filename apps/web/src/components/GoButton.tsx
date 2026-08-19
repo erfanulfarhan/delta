@@ -2,7 +2,6 @@ interface Props {
   onClick: () => void;
   disabled: boolean;
   accent: string;
-  accent2: string;
   glowRgb: string;
   label?: string;
 }
@@ -15,7 +14,7 @@ interface Props {
  * looking like a dial. Outlined, the centre stays open and the control reads as
  * part of the same face it is printed on.
  */
-export function GoButton({ onClick, disabled, accent, accent2, glowRgb, label = 'GO' }: Props) {
+export function GoButton({ onClick, disabled, accent, glowRgb, label = 'GO' }: Props) {
   return (
     <button
       onClick={onClick}
@@ -36,14 +35,14 @@ export function GoButton({ onClick, disabled, accent, accent2, glowRgb, label = 
           background: `radial-gradient(circle at 50% 30%, rgba(${glowRgb}, 0.14), transparent 70%)`,
         }}
       />
+      {/* Solid accent, not a clipped gradient.
+          Inline background-clip:text did not apply here and the gradient filled
+          the whole box instead of the glyphs, rendering the control as a plain
+          coloured square. The stylesheet's .accent-text does work, but a single
+          flat accent is legible at this size and has nothing to go wrong. */}
       <span
-        className="display relative text-[27px] font-bold tracking-[0.1em]"
-        style={{
-          background: `linear-gradient(120deg, ${accent}, ${accent2})`,
-          WebkitBackgroundClip: 'text',
-          backgroundClip: 'text',
-          color: 'transparent',
-        }}
+        className="display relative text-[27px] font-bold tracking-[0.12em]"
+        style={{ color: accent, textShadow: `0 0 26px rgba(${glowRgb}, 0.6)` }}
       >
         {label}
       </span>

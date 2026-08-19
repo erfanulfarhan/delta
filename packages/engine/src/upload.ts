@@ -2,7 +2,12 @@ import { summarise } from './aggregate.js';
 import type { ByteSample, EngineConfig, TransferResult } from './types.js';
 
 const MIN_CHUNK = 128 * 1024;
-const MAX_CHUNK = 16 * 1024 * 1024;
+// Capped well below the download ceiling on purpose. XHR upload progress
+// reports bytes handed to the OS socket buffer, not bytes acknowledged by the
+// far end, so a single large request lets the buffer swallow megabytes at once
+// and report them as instantaneous throughput. Smaller requests keep the
+// progress events closer to what is actually crossing the wire.
+const MAX_CHUNK = 4 * 1024 * 1024;
 const TARGET_REQUEST_MS = 1500;
 
 /**

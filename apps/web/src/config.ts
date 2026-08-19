@@ -21,8 +21,8 @@ const env = import.meta.env;
 export const ENDPOINTS: Record<ModeId, EndpointConfig> = {
   bdix: {
     id: 'bdix',
-    label: 'BDIX',
-    shortLabel: 'Local',
+    label: 'LOCAL',
+    shortLabel: 'BDIX peering',
     description: 'Served over local peering inside Bangladesh. Never leaves the country.',
     baseUrl: env.VITE_BDIX_URL ?? 'http://127.0.0.1:8080',
   },

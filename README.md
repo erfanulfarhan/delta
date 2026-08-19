@@ -1,7 +1,11 @@
-# Two Speeds
+# Delta
+
+Δ is the difference between two measurements, which is what this site reports.
+Bangladesh is also the world's largest river delta.
 
 A speedtest for Bangladesh that measures both paths your connection actually has,
-and shows you the gap between them.
+and shows you the gap between them: **Local** (BDIX peering, never leaves the
+country) against **Raw** (Singapore, across your ISP's international capacity).
 
 `speedtest.net` picks a nearby server inside a BDIX-peered local datacentre, so
 its number reflects traffic that never leaves the country. `speedtest.sg` forces

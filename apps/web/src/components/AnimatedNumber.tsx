@@ -4,6 +4,7 @@ interface Props {
   value: number;
   decimals?: number;
   className?: string;
+  style?: React.CSSProperties;
   /** Higher is snappier. Fraction of remaining distance closed per frame at 60fps. */
   stiffness?: number;
 }
@@ -15,7 +16,7 @@ interface Props {
  * measurement this updates every frame, and re-rendering the tree sixty times
  * a second competes with the very work whose speed we are trying to report.
  */
-export function AnimatedNumber({ value, decimals = 2, className, stiffness = 0.12 }: Props) {
+export function AnimatedNumber({ value, decimals = 2, className, style, stiffness = 0.075 }: Props) {
   const ref = useRef<HTMLSpanElement>(null);
   const targetRef = useRef(value);
   const currentRef = useRef(value);
@@ -35,5 +36,9 @@ export function AnimatedNumber({ value, decimals = 2, className, stiffness = 0.1
     return () => cancelAnimationFrame(raf);
   }, [decimals, stiffness]);
 
-  return <span ref={ref} className={className}>{value.toFixed(decimals)}</span>;
+  return (
+    <span ref={ref} className={className} style={style}>
+      {value.toFixed(decimals)}
+    </span>
+  );
 }

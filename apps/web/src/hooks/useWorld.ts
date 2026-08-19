@@ -3,7 +3,7 @@ import { lerpWorld, WORLDS, type World } from '../worlds';
 import type { ModeId } from '../config';
 
 const EASE_OUT_EXPO = (t: number) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t));
-const DURATION_MS = 900;
+const DURATION_MS = 700;
 
 /**
  * Interpolate between the two worlds so switching mode travels through the

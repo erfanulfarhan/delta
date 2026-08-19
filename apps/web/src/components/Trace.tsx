@@ -1,9 +1,8 @@
 import { useEffect, useRef } from 'react';
-import type { World } from '../worlds';
-
 interface Props {
   mbps: number;
-  world: World;
+  accent: string;
+  glowRgb: string;
   active: boolean;
   height?: number;
 }
@@ -17,7 +16,7 @@ const MAX_POINTS = 240;
  * sample per chunk, which on a fast link is hundreds a second, and drawing all
  * of them would spend more time in the canvas than the shape justifies.
  */
-export function Trace({ mbps, world, active, height = 68 }: Props) {
+export function Trace({ mbps, accent, glowRgb, active, height = 52 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const pointsRef = useRef<number[]>([]);
   const liveRef = useRef({ mbps, active });
@@ -67,8 +66,8 @@ export function Trace({ mbps, world, active, height = 68 }: Props) {
         });
 
         const fill = ctx.createLinearGradient(0, 0, 0, height);
-        fill.addColorStop(0, `rgba(${world.glowRgb}, 0.24)`);
-        fill.addColorStop(1, `rgba(${world.glowRgb}, 0)`);
+        fill.addColorStop(0, `rgba(${glowRgb}, 0.2)`);
+        fill.addColorStop(1, `rgba(${glowRgb}, 0)`);
         ctx.lineTo((points.length - 1) * step, height);
         ctx.lineTo(0, height);
         ctx.closePath();
@@ -82,7 +81,7 @@ export function Trace({ mbps, world, active, height = 68 }: Props) {
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         });
-        ctx.strokeStyle = world.accent;
+        ctx.strokeStyle = accent;
         ctx.lineWidth = 1.4;
         ctx.stroke();
       }
@@ -96,7 +95,7 @@ export function Trace({ mbps, world, active, height = 68 }: Props) {
       clearInterval(sampler);
       window.removeEventListener('resize', resize);
     };
-  }, [height, world.accent, world.glowRgb]);
+  }, [height, accent, glowRgb]);
 
   return <canvas ref={canvasRef} style={{ height }} className="w-full" aria-hidden="true" />;
 }

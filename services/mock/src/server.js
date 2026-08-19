@@ -51,6 +51,19 @@ function cors(res) {
  * never exercise a slow link. A real link is shared, so the budget is shared.
  */
 const RATE_BYTES_PER_SEC = MBPS > 0 ? (MBPS * 1_000_000) / 8 : Infinity;
+
+// Burst tolerance, not a full second of credit.
+//
+// A bucket capped at one second of traffic lets an idle moment release 50 MB
+// in one go on a 400 Mbps setting, and the client correctly reports a 600 Mbps
+// spike. Real shapers tolerate milliseconds of burst, so the harness has to as
+// well, otherwise it manufactures the very spikes it is being used to detect.
+const BURST_MS = 40;
+// Never smaller than one block, or takeTokens can never be satisfied and the
+// shaper deadlocks: at 5 Mbps a 40ms budget is 25 KB against a 64 KB block, and
+// the server stops sending entirely.
+const BUCKET_MAX = Math.max(RATE_BYTES_PER_SEC * (BURST_MS / 1000), BLOCK);
+
 let tokens = 0;
 let lastRefill = Date.now();
 
@@ -58,7 +71,7 @@ async function takeTokens(n) {
   if (RATE_BYTES_PER_SEC === Infinity) return;
   for (;;) {
     const now = Date.now();
-    tokens = Math.min(RATE_BYTES_PER_SEC, tokens + ((now - lastRefill) / 1000) * RATE_BYTES_PER_SEC);
+    tokens = Math.min(BUCKET_MAX, tokens + ((now - lastRefill) / 1000) * RATE_BYTES_PER_SEC);
     lastRefill = now;
     if (tokens >= n) {
       tokens -= n;

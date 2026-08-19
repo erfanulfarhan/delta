@@ -230,13 +230,21 @@ export default function App() {
               )}
             </div>
 
-            <ServerPicker
-              selected={rawServerId}
-              onSelect={setRawServerId}
-              disabled={state.running}
-              accent={world.accent}
-              glowRgb={world.glowRgb}
-            />
+            {/* Raw only. Local has exactly one path by definition, so offering a
+                choice there would imply an option that does not exist. Keyed on
+                the toggle rather than on the endpoint being measured, so the
+                layout does not shift underneath a run-both mid-test. */}
+            {mode === 'raw' && (
+              <div className="rise w-full max-w-xl">
+                <ServerPicker
+                  selected={rawServerId}
+                  onSelect={setRawServerId}
+                  disabled={state.running}
+                  accent={world.accent}
+                  glowRgb={world.glowRgb}
+                />
+              </div>
+            )}
 
             {/* Shown before anything is pressed: which server will be used, and
                 what it sees of your connection. */}

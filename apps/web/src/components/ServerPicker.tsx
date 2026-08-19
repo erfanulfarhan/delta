@@ -35,13 +35,25 @@ async function probe(server: RawServer): Promise<number | null> {
   return Math.min(...samples);
 }
 
+/**
+ * Latency cache at module scope, not component state.
+ *
+ * This component now mounts and unmounts as the user toggles between Local and
+ * Raw. Keeping the results in component state would re-probe every server on
+ * every toggle, which is three round trips per flick of a switch for numbers
+ * that have not meaningfully changed.
+ */
+const pingCache: Record<string, number | null> = {};
+
 export function ServerPicker({ selected, onSelect, disabled, accent, glowRgb }: Props) {
-  const [pings, setPings] = useState<Record<string, number | null>>({});
+  const [pings, setPings] = useState<Record<string, number | null>>({ ...pingCache });
   const probed = useRef(false);
 
   useEffect(() => {
     if (probed.current) return;
     probed.current = true;
+    // Already measured this session: reuse rather than re-ping.
+    if (RAW_SERVERS.every((s) => s.id in pingCache)) return;
     let alive = true;
 
     // Sequential, not parallel: concurrent probes queue against each other on a
@@ -49,6 +61,7 @@ export function ServerPicker({ selected, onSelect, disabled, accent, glowRgb }: 
     (async () => {
       for (const server of RAW_SERVERS) {
         const ms = await probe(server);
+        pingCache[server.id] = ms;
         if (!alive) return;
         setPings((p) => ({ ...p, [server.id]: ms }));
       }

@@ -30,6 +30,10 @@ export async function measureDownload(
   let firstByteAt: number | null = null;
   let chunkSize = MIN_CHUNK * 4;
 
+  // One origin per stream, round-robin. Streams beyond the origin count reuse
+  // one, which is still better than every stream sharing a single connection.
+  const origins = cfg.origins && cfg.origins.length > 0 ? cfg.origins : [cfg.baseUrl];
+
   const controller = new AbortController();
   const abort = () => controller.abort();
   signal?.addEventListener('abort', abort, { once: true });
@@ -46,7 +50,8 @@ export async function measureDownload(
     onSample(bytes, now - firstByteAt);
   };
 
-  const stream = async (): Promise<void> => {
+  const stream = async (streamIndex: number): Promise<void> => {
+    const origin = origins[streamIndex % origins.length]!;
     while (!expired() && !controller.signal.aborted) {
       const requestStarted = performance.now();
       // Captured per request. `chunkSize` is shared by all six stream loops and
@@ -58,7 +63,7 @@ export async function measureDownload(
       let token: string | null = null;
       try {
         const response = await fetch(
-          `${cfg.baseUrl}/download?bytes=${requestedBytes}&salt=${salt()}&session=${cfg.session}`,
+          `${origin}/download?bytes=${requestedBytes}&salt=${salt()}&session=${cfg.session}`,
           { cache: 'no-store', signal: controller.signal },
         );
         // Held until the body is fully consumed. The endpoint signs the size it
@@ -99,7 +104,7 @@ export async function measureDownload(
 
   const timer = setTimeout(abort, cfg.transferMs * 3); // hard ceiling if a stream wedges
   try {
-    await Promise.all(Array.from({ length: cfg.streams }, stream));
+    await Promise.all(Array.from({ length: cfg.streams }, (_, i) => stream(i)));
   } finally {
     clearTimeout(timer);
     abort();

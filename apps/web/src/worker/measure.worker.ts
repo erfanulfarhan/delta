@@ -18,6 +18,7 @@ import { run, type RunEvent, type RunResult } from '@speedtest/engine';
 export type WorkerRequest = {
   type: 'run';
   baseUrl: string;
+  origins?: string[];
   mode: string;
   /** Shared across both legs of a run-both so their attestations judge as one. */
   session: string;
@@ -37,6 +38,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   try {
     const result = await run({
       baseUrl: e.data.baseUrl,
+      origins: e.data.origins,
       mode: e.data.mode,
       session: e.data.session,
       config: e.data.transferMs ? { transferMs: e.data.transferMs } : undefined,

@@ -109,6 +109,26 @@ export const RAW_SERVERS: RawServer[] = [
 
 export const DEFAULT_RAW_SERVER = 'sin1';
 
+/**
+ * Mirrors of the local endpoint.
+ *
+ * All four are the same Worker code served from the same Dhaka PoP. They exist
+ * purely so the browser can open more than one connection: requests to a single
+ * origin share one HTTP/2 connection whose throughput is the real ceiling, and
+ * on a 470 Mbps link that capped the result at about 234 Mbps no matter how many
+ * streams were opened.
+ */
+export const LOCAL_ORIGINS: string[] = [
+  ENDPOINTS.bdix.baseUrl,
+  'https://delta-local-2.erfanul100.workers.dev',
+  'https://delta-local-3.erfanul100.workers.dev',
+  'https://delta-local-4.erfanul100.workers.dev',
+];
+
+/** Every equivalent origin for a mode, for sharding streams across connections. */
+export const originsFor = (mode: ModeId, rawServerId: string): string[] =>
+  mode === 'raw' ? [rawServer(rawServerId).baseUrl] : LOCAL_ORIGINS;
+
 export const rawServer = (id: string): RawServer =>
   RAW_SERVERS.find((s) => s.id === id) ?? RAW_SERVERS[0]!;
 

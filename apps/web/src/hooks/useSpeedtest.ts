@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Phase, RunResult } from '@speedtest/engine';
-import { baseUrlFor, type ModeId } from '../config';
+import { baseUrlFor, originsFor, type ModeId } from '../config';
 import type { WorkerRequest, WorkerResponse } from '../worker/measure.worker';
 
 export type TestKind = 'single' | 'both';
@@ -54,6 +54,7 @@ function measure(
   mode: ModeId,
   session: string,
   baseUrl: string,
+  origins: string[],
   onEvent: (phase: Phase, mbps: number, progress: number, downloadMbps?: number) => void,
 ): { promise: Promise<RunResult>; cancel: () => void } {
   const worker = createWorker();
@@ -79,6 +80,7 @@ function measure(
     const request: WorkerRequest = {
       type: 'run',
       baseUrl,
+      origins,
       mode,
       session,
     };
@@ -123,7 +125,8 @@ export function useSpeedtest() {
       }));
 
       const url = baseUrlFor(id, rawServerId);
-      const { promise, cancel } = measure(id, session, url, (phase, mbps, progress, downloadMbps) => {
+      const origins = originsFor(id, rawServerId);
+      const { promise, cancel } = measure(id, session, url, origins, (phase, mbps, progress, downloadMbps) => {
         if (!aliveRef.current) return;
         setState((s) =>
           s.active === id

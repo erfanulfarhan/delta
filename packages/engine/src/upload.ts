@@ -83,6 +83,8 @@ export async function measureUpload(
   };
 
   let lastProgressAt: number | null = null;
+  const origins = cfg.origins && cfg.origins.length > 0 ? cfg.origins : [cfg.baseUrl];
+
   const inflight = new Set<XMLHttpRequest>();
   const stopAll = () => {
     stopped = true;
@@ -91,7 +93,7 @@ export async function measureUpload(
   };
   signal?.addEventListener('abort', stopAll, { once: true });
 
-  const send = (body: Blob): Promise<number> =>
+  const send = (body: Blob, origin: string): Promise<number> =>
     new Promise((resolve) => {
       const xhr = new XMLHttpRequest();
       const started = performance.now();
@@ -152,15 +154,16 @@ export async function measureUpload(
 
       xhr.open(
         'POST',
-        `${cfg.baseUrl}/upload?salt=${Math.random().toString(36).slice(2)}&session=${cfg.session}`,
+        `${origin}/upload?salt=${Math.random().toString(36).slice(2)}&session=${cfg.session}`,
       );
       xhr.send(body);
     });
 
-  const stream = async (): Promise<void> => {
+  const stream = async (streamIndex: number): Promise<void> => {
+    const origin = origins[streamIndex % origins.length]!;
     while (!expired() && !stopped) {
       const body = randomBlob(chunkSize);
-      const took = await send(body);
+      const took = await send(body, origin);
       if (took > 0) {
         const scaled = chunkSize * (TARGET_REQUEST_MS / took);
         chunkSize = Math.max(MIN_CHUNK, Math.min(MAX_CHUNK, Math.round(scaled)));
@@ -169,7 +172,7 @@ export async function measureUpload(
   };
 
   try {
-    await Promise.all(Array.from({ length: cfg.streams }, stream));
+    await Promise.all(Array.from({ length: cfg.streams }, (_, i) => stream(i)));
   } finally {
     stopAll();
     signal?.removeEventListener('abort', stopAll);

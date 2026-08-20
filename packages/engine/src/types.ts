@@ -66,6 +66,20 @@ export interface EngineConfig {
   /** Base URL of the endpoint. This is the ONLY thing distinguishing local from raw. */
   baseUrl: string;
   /**
+   * Equivalent origins for the same server, used round-robin across streams.
+   *
+   * A browser multiplexes every request to one origin over a single HTTP/2
+   * connection, and that connection is the ceiling: measured on a 470 Mbps link,
+   * eight streams to one origin reached 234 Mbps and sixteen reached no more,
+   * while eight streams split across two origins reached 423. Extra hostnames
+   * are the only way a browser can open extra connections. curl never hit this
+   * because separate processes already meant separate connections.
+   *
+   * Every origin must share the signing secret, or attestations from the
+   * mirrors will not verify.
+   */
+  origins?: string[];
+  /**
    * Ties every attestation from this run together. Sent on each request so the
    * endpoint can bind its signed byte counts to one measurement, which is what
    * stops tokens being replayed from an earlier, faster run.

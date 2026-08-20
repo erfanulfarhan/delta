@@ -23,6 +23,8 @@ export interface RunEvent {
 
 export interface RunOptions {
   baseUrl: string;
+  /** Equivalent mirrors of the same server; see EngineConfig.origins. */
+  origins?: string[];
   mode: string;
   /** Supplied by the caller so a run-both pair can share one session. */
   session?: string;
@@ -136,6 +138,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     ...DEFAULT_CONFIG,
     ...options.config,
     baseUrl: options.baseUrl.replace(/\/$/, ''),
+    origins: (options.origins ?? [options.baseUrl]).map((o) => o.replace(/\/$/, '')),
     mode: options.mode,
     session,
   };

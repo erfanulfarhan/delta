@@ -39,14 +39,14 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     return;
   }
 
-  let ptr: string | null = null;
-  try {
-    const names = await dns.reverse(ip);
-    ptr = names[0] ?? null;
-  } catch {
-    // Absence of a PTR record is itself weakly informative, never an error.
-    ptr = null;
-  }
+  // Bounded, because an address with no PTR record does not fail fast: the
+  // resolver retries until its own timeout, which measured 28 seconds and left
+  // the interface saying "checking" for half a minute. A missing PTR is a
+  // perfectly good answer, so stop waiting for one after 1.5s.
+  const ptr = await Promise.race([
+    dns.reverse(ip).then((names) => names[0] ?? null).catch(() => null),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500)),
+  ]);
 
   const lower = (ptr ?? '').toLowerCase();
   const shared = isSharedAddressSpace(ip);

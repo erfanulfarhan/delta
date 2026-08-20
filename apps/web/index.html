@@ -3,7 +3,41 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Delta</title>
+    <title>Delta Speed Test — BDIX vs International Speed Test for Bangladesh</title>
+    <link rel="canonical" href="https://deltaspeed.pages.dev/" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <meta name="theme-color" content="#07060f" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Delta Speed Test" />
+    <meta property="og:title" content="Delta Speed Test — BDIX vs International Speed for Bangladesh" />
+    <meta property="og:description" content="Free speed test for Bangladesh. Measure your BDIX (local) speed and your real international speed in one run, and see the gap between them." />
+    <meta property="og:url" content="https://deltaspeed.pages.dev/" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Delta Speed Test — BDIX vs International Speed" />
+    <meta name="twitter:description" content="Measure your BDIX speed and your real international speed, and see the gap between them." />
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Delta Speed Test",
+      "alternateName": ["Delta Speedtest", "Delta BDIX Speed Test"],
+      "url": "https://deltaspeed.pages.dev/",
+      "applicationCategory": "UtilitiesApplication",
+      "operatingSystem": "Any",
+      "browserRequirements": "Requires JavaScript",
+      "description": "A free internet speed test built for Bangladesh. Measures BDIX local speed and real international bandwidth separately, then reports the ratio between them.",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "featureList": [
+        "BDIX local speed test",
+        "International (raw) speed test",
+        "Download and upload speed",
+        "Ping and jitter",
+        "Selectable international servers"
+      ]
+    }
+    </script>
     <meta name="description" content="Measure your local speed and your raw international speed, and see the gap between them." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -11,7 +45,40 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Server-rendered fallback: replaced by the app on mount. Exists so the
+           page is not an empty div to a crawler that does not run JavaScript. -->
+      <article style="max-width:44rem;margin:0 auto;padding:3rem 1.25rem;font-family:system-ui,sans-serif;color:#e7e6f0">
+        <h1>Delta Speed Test — BDIX and international speed, measured separately</h1>
+        <p>
+          Every internet connection in Bangladesh really has two speeds. Traffic that stays
+          inside the country over BDIX peering is fast and cheap for your ISP to carry.
+          Traffic that leaves the country crosses their international (IIG) capacity, which
+          is usually a fraction of it. Most speed tests show you one number and leave you
+          guessing which one you got.
+        </p>
+        <p>
+          Delta measures both in one run and reports the gap between them, so you can see
+          how much of the speed you are paying for actually reaches the wider internet.
+        </p>
+        <h2>What it measures</h2>
+        <ul>
+          <li><strong>Local (BDIX)</strong> — download and upload against a server inside Bangladesh.</li>
+          <li><strong>Raw (international)</strong> — the same test against a server abroad, with a choice of Singapore, Mumbai or Tokyo.</li>
+          <li><strong>Ping and jitter</strong> — latency and how steady it is, for each path.</li>
+        </ul>
+        <h2>Why local and international speeds differ in Bangladesh</h2>
+        <p>
+          BDIX is the Bangladesh Internet Exchange. When your ISP peers there, traffic
+          between you and other members never leaves the country, so it runs at close to
+          your full port speed. Anything beyond that has to travel over submarine cable
+          capacity your ISP buys by the megabit, which is why a connection that benchmarks
+          at several hundred megabits locally can still be slow on YouTube or a game server
+          hosted overseas.
+        </p>
+        <p>Enable JavaScript to run the test.</p>
+      </article>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

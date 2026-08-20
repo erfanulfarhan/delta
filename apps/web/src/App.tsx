@@ -28,6 +28,7 @@ import {
   type ModeId,
 } from './config';
 import { ServerPicker } from './components/ServerPicker';
+import { NetworkTools } from './components/NetworkTools';
 
 const PHASE_LABEL: Record<string, string> = {
   idle: 'Ready',
@@ -316,6 +317,10 @@ export default function App() {
 
         {route.name === 'home' && !state.running && (
           <HistoryPanel entries={history} onCleared={() => setHistory([])} />
+        )}
+
+        {route.name === 'home' && !state.running && (
+          <NetworkTools accent={world.accent} glowRgb={world.glowRgb} />
         )}
 
         {state.error && (

@@ -11,7 +11,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Delta Speed Test" />
     <meta property="og:title" content="Delta Speed Test — BDIX vs International Speed for Bangladesh" />
-    <meta property="og:description" content="Free speed test for Bangladesh. Measure your BDIX (local) speed and your real international speed in one run, and see the gap between them." />
+    <meta property="og:description" content="Free speed test for Bangladesh. Measure your BDIX (local) speed and your real international speed in one run, plus check whether your IP is shared and whether ports are reachable for torrent seeding." />
     <meta property="og:url" content="https://deltaspeed.pages.dev/" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Delta Speed Test — BDIX vs International Speed" />
@@ -34,7 +34,9 @@
         "International (raw) speed test",
         "Download and upload speed",
         "Ping and jitter",
-        "Selectable international servers"
+        "Selectable international servers",
+        "Shared or public IP detection",
+        "NAT and port forwarding test for torrent seeding"
       ]
     }
     </script>
@@ -76,6 +78,17 @@
           at several hundred megabits locally can still be slow on YouTube or a game server
           hosted overseas.
         </p>
+        <h2>IP and NAT tools</h2>
+        <p>
+          Delta also tells you what kind of address your ISP has given you and whether the
+          internet can reach you. If you are behind carrier-grade NAT you share one public
+          address with other subscribers, which means port forwarding does not work: torrents
+          will not seed, game hosting fails, and you cannot reach your own NAS from outside.
+        </p>
+        <ul>
+          <li><strong>Shared or public IP check</strong> — detects carrier NAT address space and reads your reverse DNS.</li>
+          <li><strong>Port reachability test</strong> — a server in Singapore tries to open a real inbound TCP connection to a port you choose, which is the only way to know for certain.</li>
+        </ul>
         <p>Enable JavaScript to run the test.</p>
       </article>
     </div>

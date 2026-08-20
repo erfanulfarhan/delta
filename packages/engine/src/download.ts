@@ -5,7 +5,10 @@ const salt = () => Math.random().toString(36).slice(2);
 
 const MIN_CHUNK = 256 * 1024;
 const MAX_CHUNK = 64 * 1024 * 1024;
-const TARGET_REQUEST_MS = 1500;
+// Longer requests, fewer restarts. Every new request re-enters the endpoint's
+// stream generation and gives up a little to ramp, and a phase was spending
+// itself on five or six restarts per stream.
+const TARGET_REQUEST_MS = 3000;
 
 /**
  * Measure download throughput over a fixed wall clock window.

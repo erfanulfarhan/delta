@@ -15,7 +15,11 @@
 import { sign } from '../../../packages/attest/src/index.ts';
 
 const MAX_BYTES = 128 * 1024 * 1024;
-const BLOCK = 64 * 1024;
+// 256 KB, not 64 KB. Each enqueue is a JS callback inside the Worker's CPU
+// budget, so a smaller block means four times the callbacks for the same bytes.
+// Downloads were measuring roughly half of uploads on the same connection, and
+// uploads do no generation work at all.
+const BLOCK = 256 * 1024;
 
 // One block of random bytes, reused across requests in the same isolate.
 // Incompressible is the property that matters; regenerating per request would

@@ -96,7 +96,7 @@ export interface EngineConfig {
   bucketMs: number;
   /** Fraction of opening buckets discarded to exclude TCP slow start. */
   rampFraction: number;
-  /** Fraction trimmed from each tail before averaging. */
+  /** Fraction of slowest windows discarded before averaging (Ookla uses 0.3). */
   trimFraction: number;
 }
 
@@ -109,5 +109,5 @@ export const DEFAULT_CONFIG: Omit<EngineConfig, 'baseUrl' | 'mode' | 'session'> 
   pingSamples: 10,
   bucketMs: 100,
   rampFraction: 0.2,
-  trimFraction: 0.1,
+  trimFraction: 0.3,
 };

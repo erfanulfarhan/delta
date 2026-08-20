@@ -41,21 +41,28 @@ export function bucketize(
 }
 
 /**
- * Discard the opening ramp, then take a symmetrically trimmed mean.
+ * Discard the opening ramp, then average the fastest 70 percent of windows.
  *
- * TCP slow start makes the opening of every transfer slower than the link,
- * so a plain average understates every connection and understates fast ones
- * most. Trimming both tails afterwards removes a stalled window or a burst
- * from a competing download without letting either dominate.
+ * This is asymmetric on purpose, and it is a change from the symmetric trim
+ * this used to do. A symmetric trim lands near the median of the throughput
+ * distribution, which is defensible in isolation but produced numbers roughly
+ * half of what every other speedtest reports on the same connection: one
+ * measured run had a median window of 251 Mbps and a peak of 503.
  *
- * Guards matter more than the maths here: a very short or very slow phase
- * can leave too few windows to trim meaningfully, and in that case reporting
- * something slightly noisy beats reporting zero.
+ * Ookla's published method drops the slowest 30 percent of samples and averages
+ * the remainder, so speedtest.net reports something close to the sustained peak
+ * rather than the middle. Since the entire purpose of a speed figure is to be
+ * comparable with the number the user gets elsewhere, matching that convention
+ * matters more than statistical neutrality. The raw samples are kept in the
+ * result either way, so the honest average is still recoverable.
+ *
+ * TCP slow start means the opening of every transfer is slower than the link,
+ * so the ramp is dropped first and separately.
  */
 export function trimmedMeanMbps(
   buckets: Bucket[],
   rampFraction: number,
-  trimFraction: number,
+  slowFraction: number,
 ): number {
   if (buckets.length === 0) return 0;
 
@@ -66,12 +73,11 @@ export function trimmedMeanMbps(
   if (considered.length < 3) considered = buckets;
 
   const sorted = considered.map((b) => b.mbps).sort((a, b) => a - b);
-  // Rounded up, not down: at 8 windows a 10 percent trim floors to zero and
-  // the guarantee this function exists to make quietly evaporates, letting one
-  // stalled window poison a short measurement. Rounding up keeps the intent at
-  // every sample size; the `kept` guard below stops it over-trimming tiny sets.
-  const trim = Math.ceil(sorted.length * trimFraction);
-  const kept = sorted.length - 2 * trim >= 1 ? sorted.slice(trim, sorted.length - trim) : sorted;
+
+  // Rounded up so the guarantee holds at every sample size; the guard below
+  // stops it discarding everything on a very short phase.
+  const drop = Math.ceil(sorted.length * slowFraction);
+  const kept = sorted.length - drop >= 1 ? sorted.slice(drop) : sorted;
 
   const sum = kept.reduce((acc, v) => acc + v, 0);
   return sum / kept.length;
@@ -85,7 +91,16 @@ export function summarise(
   trimFraction: number,
 ): TransferResult {
   const buckets = bucketize(samples, bucketMs, durationMs);
-  const bytesTotal = samples.reduce((acc, s) => acc + s.bytes, 0);
+
+  // Only bytes inside the measured window count.
+  //
+  // Chunks already in flight when the deadline passes still arrive and are still
+  // recorded, but `durationMs` is clamped to the window. Summing every sample
+  // against a clamped duration describes two different intervals and overstates
+  // throughput: on a 5 Mbps shaped link it reported 6.1. `bucketize` already
+  // drops out-of-window samples, so the reported figure was unaffected, but
+  // bytesTotal is what any bytes-over-time check uses.
+  const bytesTotal = samples.reduce((acc, s) => (s.at < durationMs ? acc + s.bytes : acc), 0);
   return {
     mbps: trimmedMeanMbps(buckets, rampFraction, trimFraction),
     buckets,

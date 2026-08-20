@@ -44,8 +44,23 @@ describe('engine against a shaped link', () => {
   it('measures a 5 Mbps link within tolerance', async () => {
     const baseUrl = await startMock({ PORT: '8091', MOCK_MBPS: '5', MOCK_LABEL: 'slow' });
     const result = await measureDownload(config(baseUrl), () => {});
+
+    // Two statistics, two tolerances, on purpose.
+    //
+    // The reported figure discards the slowest 30 percent of windows to match
+    // what speedtest.net reports, so it reads a link's burst rather than its
+    // mean. The mock cannot shape finer than one 64 KB block, which at 5 Mbps is
+    // about 100 ms of data, so single windows legitimately exceed nominal and
+    // the headline number runs high. That is the harness being coarse, not the
+    // engine being wrong.
     expect(result.mbps).toBeGreaterThan(4);
-    expect(result.mbps).toBeLessThan(6.5);
+    expect(result.mbps).toBeLessThan(7.5);
+
+    // Total bytes over elapsed time cannot be inflated by any choice of
+    // statistic, so it stays tight and is the real accuracy check.
+    const trueAverage = (result.bytesTotal * 8) / (result.durationMs / 1000) / 1_000_000;
+    expect(trueAverage).toBeGreaterThan(4.3);
+    expect(trueAverage).toBeLessThan(5.8);
   }, 30_000);
 
   it('measures a 200 Mbps link within tolerance, with the same code path', async () => {

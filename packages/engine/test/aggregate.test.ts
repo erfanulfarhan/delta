@@ -68,28 +68,37 @@ describe('trimmedMeanMbps', () => {
   it('discards the opening ramp so slow start does not drag the result down', () => {
     // First 2 of 10 windows are the ramp; the link is really 100 Mbps.
     const buckets = bucketsOf([5, 20, 100, 100, 100, 100, 100, 100, 100, 100]);
-    expect(trimmedMeanMbps(buckets, 0.2, 0.1)).toBe(100);
+    expect(trimmedMeanMbps(buckets, 0.2, 0.3)).toBe(100);
+  });
+
+  it('reports the sustained rate, not the middle of the distribution', () => {
+    // A connection oscillating between 200 and 400 should report near 400, the
+    // way speedtest.net does, not the 300 a symmetric trim would give.
+    const buckets = bucketsOf([200, 400, 200, 400, 200, 400, 200, 400, 200, 400]);
+    expect(trimmedMeanMbps(buckets, 0, 0.3)).toBeGreaterThan(340);
   });
 
   it('is not dragged down by a single stalled window', () => {
     const buckets = bucketsOf([5, 20, 100, 100, 100, 0, 100, 100, 100, 100]);
-    expect(trimmedMeanMbps(buckets, 0.2, 0.1)).toBe(100);
+    expect(trimmedMeanMbps(buckets, 0.2, 0.3)).toBe(100);
   });
 
   it('falls back to all windows when too few survive the ramp cut', () => {
+    // Ramp cut would leave one window, so all are considered; the slower of the
+    // two is then discarded as the slowest 30 percent.
     const buckets = bucketsOf([10, 20]);
-    expect(trimmedMeanMbps(buckets, 0.2, 0.1)).toBe(15);
+    expect(trimmedMeanMbps(buckets, 0.2, 0.3)).toBe(20);
   });
 
   it('returns zero for no data rather than NaN', () => {
-    expect(trimmedMeanMbps([], 0.2, 0.1)).toBe(0);
+    expect(trimmedMeanMbps([], 0.2, 0.3)).toBe(0);
   });
 });
 
 describe('summarise', () => {
   it('measures a steady 80 Mbps stream', () => {
     // 1_000_000 bytes every 100ms = 10 MB/s = 80 Mbps
-    const result = summarise(steady(1_000_000, 100, 8000), 8000, 100, 0.2, 0.1);
+    const result = summarise(steady(1_000_000, 100, 8000), 8000, 100, 0.2, 0.3);
     expect(result.mbps).toBeCloseTo(80, 5);
     expect(result.buckets).toHaveLength(80);
     expect(result.bytesTotal).toBe(80_000_000);
@@ -97,7 +106,7 @@ describe('summarise', () => {
 
   it('measures a slow connection with the same code path', () => {
     // 62_500 bytes every 100ms = 625 KB/s = 5 Mbps
-    const result = summarise(steady(62_500, 100, 8000), 8000, 100, 0.2, 0.1);
+    const result = summarise(steady(62_500, 100, 8000), 8000, 100, 0.2, 0.3);
     expect(result.mbps).toBeCloseTo(5, 5);
   });
 });
@@ -137,5 +146,22 @@ describe('summariseLatency', () => {
   it('handles zero and one sample without dividing by zero', () => {
     expect(summariseLatency([]).pingMs).toBe(0);
     expect(summariseLatency([42]).jitterMs).toBe(0);
+  });
+});
+
+describe('summarise byte accounting', () => {
+  it('excludes bytes that arrive after the measurement window closes', () => {
+    // Chunks in flight at the deadline still land, but must not be counted
+    // against a duration that stops at the deadline.
+    const samples = [
+      { at: 0, bytes: 1_000_000 },
+      { at: 500, bytes: 1_000_000 },
+      { at: 1500, bytes: 5_000_000 }, // arrived late, outside the window
+    ];
+    const result = summarise(samples, 1000, 100, 0.2, 0.3);
+    expect(result.bytesTotal).toBe(2_000_000);
+
+    const trueAverage = (result.bytesTotal * 8) / (result.durationMs / 1000) / 1_000_000;
+    expect(trueAverage).toBeCloseTo(16, 5);
   });
 });

@@ -36,7 +36,7 @@
         "Ping and jitter",
         "Selectable international servers",
         "Shared or public IP detection",
-        "NAT and port forwarding test for torrent seeding"
+        "Inbound reachability and NAT test","Port forwarding check for torrent seeding"
       ]
     }
     </script>
@@ -86,8 +86,9 @@
           will not seed, game hosting fails, and you cannot reach your own NAS from outside.
         </p>
         <ul>
-          <li><strong>Shared or public IP check</strong> — detects carrier NAT address space and reads your reverse DNS.</li>
-          <li><strong>Port reachability test</strong> — a server in Singapore tries to open a real inbound TCP connection to a port you choose, which is the only way to know for certain.</li>
+          <li><strong>Inbound reachability test</strong> — a server in Singapore tries to open real TCP connections back to your address. Nothing needs to be open for this to work: a refused connection still proves traffic from the internet reaches you, which is exactly what carrier NAT takes away.</li>
+          <li><strong>Shared or public IP check</strong> — detects carrier NAT address space and reads your reverse DNS for the names ISPs use for shared and dynamic addresses.</li>
+          <li><strong>Specific port check</strong> — if you have forwarded a port for seeding or hosting, test that it is actually reachable.</li>
         </ul>
         <p>Enable JavaScript to run the test.</p>
       </article>

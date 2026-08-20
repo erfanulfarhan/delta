@@ -12,15 +12,22 @@ export interface IpInfo {
   confidence: 'certain' | 'hint' | 'unknown';
 }
 
-export type PortOutcome = 'open' | 'closed' | 'filtered' | 'error';
+export type PortOutcome = 'open' | 'refused' | 'silent' | 'error';
 
-export interface PortResult {
-  ip: string;
+export interface Probe {
   port: number;
   outcome: PortOutcome;
   detail: string;
-  meaning: string;
+}
+
+export interface Reachability {
+  ip: string;
   testedFrom: string;
+  probes: Probe[];
+  /** null when the result is genuinely inconclusive. */
+  reachable: boolean | null;
+  headline: string;
+  detail: string;
 }
 
 export async function fetchIpInfo(): Promise<IpInfo | null> {
@@ -33,12 +40,22 @@ export async function fetchIpInfo(): Promise<IpInfo | null> {
   }
 }
 
-export async function checkPort(port: number): Promise<PortResult | { error: string }> {
+/**
+ * Ask whether the internet can reach this connection at all.
+ *
+ * With no ports argument the server probes a default set that consumer routers
+ * commonly answer on. Pass ports only when checking a specific forwarded
+ * service.
+ */
+export async function checkReachability(
+  ports?: number[],
+): Promise<Reachability | { error: string }> {
+  const query = ports && ports.length > 0 ? `?ports=${ports.join(',')}` : '';
   try {
-    const r = await fetch(`${TOOLS_BASE}/portcheck?port=${port}`, { cache: 'no-store' });
+    const r = await fetch(`${TOOLS_BASE}/portcheck${query}`, { cache: 'no-store' });
     const json = await r.json();
     if (!r.ok) return { error: (json as { error?: string }).error ?? 'Check failed.' };
-    return json as PortResult;
+    return json as Reachability;
   } catch {
     return { error: 'Could not reach the test server.' };
   }

@@ -71,6 +71,8 @@ export interface RawServer {
   country: string;
   flag: string;
   baseUrl: string;
+  /** Extra hostnames for the same region, so the browser opens more connections. */
+  origins?: string[];
   /**
    * How far along the distance line this server sits, relative to the furthest.
    * Roughly proportional to great-circle distance from Bangladesh, so the
@@ -87,6 +89,12 @@ export const RAW_SERVERS: RawServer[] = [
     country: 'SG',
     flag: '🇸🇬',
     baseUrl: 'https://delta-sin1.vercel.app/api',
+    origins: [
+      'https://delta-sin1.vercel.app/api',
+      'https://delta-sin1-2.vercel.app/api',
+      'https://delta-sin1-3.vercel.app/api',
+      'https://delta-sin1-4.vercel.app/api',
+    ],
     reach: 0.84,
   },
   {
@@ -126,8 +134,11 @@ export const LOCAL_ORIGINS: string[] = [
 ];
 
 /** Every equivalent origin for a mode, for sharding streams across connections. */
-export const originsFor = (mode: ModeId, rawServerId: string): string[] =>
-  mode === 'raw' ? [rawServer(rawServerId).baseUrl] : LOCAL_ORIGINS;
+export const originsFor = (mode: ModeId, rawServerId: string): string[] => {
+  if (mode !== 'raw') return LOCAL_ORIGINS;
+  const s = rawServer(rawServerId);
+  return s.origins && s.origins.length > 0 ? s.origins : [s.baseUrl];
+};
 
 export const rawServer = (id: string): RawServer =>
   RAW_SERVERS.find((s) => s.id === id) ?? RAW_SERVERS[0]!;

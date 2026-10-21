@@ -1,9 +1,12 @@
+import { MLAB_LOCATE_URL, MLAB_PRIVACY_URL } from '@speedtest/engine';
+
 /**
- * The two endpoints.
+ * The two paths.
  *
- * These URLs are the entire difference between BDIX and RAW. The engine has no
- * concept of a mode; it takes a base URL. Adding a third location later means
- * adding an entry here, not touching measurement code.
+ * Local is Delta's own endpoint, a Cloudflare Worker served from Dhaka. Raw is
+ * Measurement Lab's open servers abroad. The engine takes a base URL for one
+ * and a site code for the other, and reduces both to figures with the same
+ * statistic, which is what makes the ratio between them mean something.
  */
 export type ModeId = 'bdix' | 'raw';
 
@@ -11,9 +14,8 @@ export interface EndpointConfig {
   id: ModeId;
   label: string;
   shortLabel: string;
-  /** What this endpoint actually measures, stated honestly. */
+  /** What this path actually measures, stated honestly. */
   description: string;
-  baseUrl: string;
 }
 
 const env = import.meta.env;
@@ -24,43 +26,53 @@ export const ENDPOINTS: Record<ModeId, EndpointConfig> = {
     label: 'LOCAL',
     shortLabel: 'BDIX peering',
     description: 'Served over local peering inside Bangladesh. Never leaves the country.',
-    baseUrl: env.VITE_BDIX_URL ?? 'http://127.0.0.1:8080',
   },
   raw: {
     id: 'raw',
     label: 'RAW',
     shortLabel: 'International',
-    description: 'Singapore. Crosses your ISP’s international bandwidth.',
-    baseUrl: env.VITE_RAW_URL ?? 'http://127.0.0.1:8081',
+    description: "Measurement Lab's servers abroad. Crosses your ISP's international bandwidth.",
   },
 };
 
+/** Delta's own endpoint. It also answers /meta for both modes. */
+export const LOCAL_URL = (env.VITE_BDIX_URL ?? 'http://127.0.0.1:8080').replace(/\/$/, '');
+
 /**
- * True when an endpoint still points at localhost, meaning nothing real is
+ * Measurement Lab, for Raw.
+ *
+ * The client name identifies this integration in M-Lab's data, which is what
+ * the protocol asks of third-party clients. The locate URL is overridable only
+ * so local development can point at services/mock/src/msak.js.
+ */
+export const MLAB = {
+  // `||`, not `??`: the deploy script sets this to an empty string so a local
+  // override in .env.local can never reach the live site.
+  locateUrl: (env.VITE_MLAB_LOCATE_URL || MLAB_LOCATE_URL).replace(/\/$/, ''),
+  client: { name: 'delta-speedtest', version: '1.1.0' },
+  privacyUrl: MLAB_PRIVACY_URL,
+};
+
+/**
+ * True when either path still points at localhost, meaning nothing real is
  * being measured. The interface says so out loud rather than presenting mock
  * figures as though they came from a network.
  */
-export const USING_MOCKS =
-  ENDPOINTS.bdix.baseUrl.includes('127.0.0.1') || ENDPOINTS.raw.baseUrl.includes('127.0.0.1');
+export const USING_MOCKS = LOCAL_URL.includes('127.0.0.1') || MLAB.locateUrl.includes('127.0.0.1');
 
-/**
- * Which endpoints actually exist.
- *
- * The two sides can go live at different times: a Cloudflare Worker is a single
- * command, while the Singapore host has to be provisioned by hand. Pointing Raw
- * at whatever is available in the meantime would be the worst possible
- * behaviour, because it would produce plausible numbers for a path nobody
- * measured. An endpoint with no URL is reported as unavailable instead.
- */
 /**
  * Selectable locations for the Raw side.
  *
- * Every one of these is a server this project operates, pinned to that region
- * and verified at deploy time to actually run there. None of them are Ookla's
- * servers: the ones speedtest.net offers (AmberIT, NextGen and the rest) are
- * Ookla infrastructure hosted by those ISPs, they do not speak this protocol,
- * and pointing a browser at them would be using someone else's servers without
- * their agreement.
+ * Each is a physical M-Lab site: rack servers with a 10 Gbps uplink straight
+ * onto a transit network, with no CDN in front, so a test really does cross
+ * the ISP's international capacity and the server is never the bottleneck of a
+ * home connection. The ids are M-Lab's site codes and go to its Locate service
+ * as they are.
+ *
+ * None of them are Ookla's servers. The ones speedtest.net offers (AmberIT,
+ * NextGen and the rest) are Ookla infrastructure hosted by those ISPs under
+ * Ookla's terms, and pointing a browser at them would be using someone else's
+ * servers without their agreement. M-Lab exists to be used this way.
  *
  * Local stays fixed at Dhaka. It is not a choice in the same sense: the whole
  * point of that side is the one path that never leaves the country.
@@ -70,52 +82,30 @@ export interface RawServer {
   city: string;
   country: string;
   flag: string;
-  baseUrl: string;
-  /** Extra hostnames for the same region, so the browser opens more connections. */
-  origins?: string[];
+  /** Great-circle distance from Dhaka, shown until a test has measured the ping. */
+  km: number;
+  /** The network the site's uplink connects to, as M-Lab lists it. */
+  transit: string;
   /**
    * How far along the distance line this server sits, relative to the furthest.
-   * Roughly proportional to great-circle distance from Bangladesh, so the
-   * drawing says something true rather than treating every destination as
-   * equally remote.
+   * Scaled from great-circle distance from Bangladesh, so the drawing says
+   * something true rather than treating every destination as equally remote.
    */
   reach: number;
 }
 
 export const RAW_SERVERS: RawServer[] = [
-  {
-    id: 'sin1',
-    city: 'Singapore',
-    country: 'SG',
-    flag: '🇸🇬',
-    baseUrl: 'https://delta-sin1.vercel.app/api',
-    origins: [
-      'https://delta-sin1.vercel.app/api',
-      'https://delta-sin1-2.vercel.app/api',
-      'https://delta-sin1-3.vercel.app/api',
-      'https://delta-sin1-4.vercel.app/api',
-    ],
-    reach: 0.84,
-  },
-  {
-    id: 'bom1',
-    city: 'Mumbai',
-    country: 'IN',
-    flag: '🇮🇳',
-    baseUrl: 'https://delta-bom1.vercel.app/api',
-    reach: 0.58,
-  },
-  {
-    id: 'hnd1',
-    city: 'Tokyo',
-    country: 'JP',
-    flag: '🇯🇵',
-    baseUrl: 'https://delta-hnd1.vercel.app/api',
-    reach: 1,
-  },
+  { id: 'sin01', city: 'Singapore', country: 'SG', flag: '🇸🇬', km: 2885, transit: 'TATA', reach: 0.84 },
+  // bom02 rather than bom04: TATA, as in Singapore, and one of the upstreams
+  // Bangladeshi IIGs actually buy from.
+  { id: 'bom02', city: 'Mumbai', country: 'IN', flag: '🇮🇳', km: 1888, transit: 'TATA', reach: 0.58 },
+  { id: 'hnd02', city: 'Tokyo', country: 'JP', flag: '🇯🇵', km: 4880, transit: 'BIGLOBE', reach: 1 },
 ];
 
-export const DEFAULT_RAW_SERVER = 'sin1';
+export const DEFAULT_RAW_SERVER = 'sin01';
+
+export const rawServer = (id: string): RawServer =>
+  RAW_SERVERS.find((s) => s.id === id) ?? RAW_SERVERS[0]!;
 
 /**
  * Mirrors of the local endpoint.
@@ -127,29 +117,17 @@ export const DEFAULT_RAW_SERVER = 'sin1';
  * streams were opened.
  */
 export const LOCAL_ORIGINS: string[] = [
-  ENDPOINTS.bdix.baseUrl,
+  LOCAL_URL,
   'https://delta-local-2.erfanul100.workers.dev',
   'https://delta-local-3.erfanul100.workers.dev',
   'https://delta-local-4.erfanul100.workers.dev',
 ];
 
-/** Every equivalent origin for a mode, for sharding streams across connections. */
-export const originsFor = (mode: ModeId, rawServerId: string): string[] => {
-  if (mode !== 'raw') return LOCAL_ORIGINS;
-  const s = rawServer(rawServerId);
-  return s.origins && s.origins.length > 0 ? s.origins : [s.baseUrl];
-};
-
-export const rawServer = (id: string): RawServer =>
-  RAW_SERVERS.find((s) => s.id === id) ?? RAW_SERVERS[0]!;
-
-/** Base URL for a mode, honouring the chosen Raw location. */
-export const baseUrlFor = (mode: ModeId, rawServerId: string): string =>
-  (mode === 'raw' ? rawServer(rawServerId).baseUrl : ENDPOINTS.bdix.baseUrl).replace(/\/$/, '');
-
 export const AVAILABLE: Record<ModeId, boolean> = {
   bdix: Boolean(env.VITE_BDIX_URL) || import.meta.env.DEV,
-  raw: true, // its own servers are deployed and verified per region
+  // M-Lab needs nothing deployed. When it is unreachable the run fails with a
+  // message saying so, which is the graceful failure M-Lab asks for.
+  raw: true,
 };
 
 export const BOTH_AVAILABLE = AVAILABLE.bdix && AVAILABLE.raw;

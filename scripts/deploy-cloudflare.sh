@@ -64,10 +64,11 @@ echo "    /ping ok, served from PoP: ${COLO:-unknown}"
 
 echo "==> 3/4  Building the site against that endpoint"
 cd "$ROOT/apps/web"
-# VITE_RAW_URL is intentionally left unset until a Singapore host exists. The
-# interface reports Raw as undeployed rather than measuring the wrong path.
+# Raw needs no URL: it runs on Measurement Lab. VITE_MLAB_LOCATE_URL is emptied
+# on purpose, because Vite also reads .env.local, and a local mock address left
+# there would otherwise be compiled into the live site.
 VITE_BDIX_URL="$WORKER_URL" \
-VITE_RAW_URL="${VITE_RAW_URL:-}" \
+VITE_MLAB_LOCATE_URL="" \
 VITE_SUPABASE_URL="${VITE_SUPABASE_URL:-}" \
 VITE_SUPABASE_ANON_KEY="${VITE_SUPABASE_ANON_KEY:-}" \
   npx vite build

@@ -23,12 +23,14 @@ import {
   BOTH_AVAILABLE,
   DEFAULT_RAW_SERVER,
   ENDPOINTS,
+  MLAB,
   rawServer,
   USING_MOCKS,
   type ModeId,
 } from './config';
 import { ServerPicker } from './components/ServerPicker';
 import { NetworkTools } from './components/NetworkTools';
+import { PrivacyView } from './components/PrivacyView';
 
 const PHASE_LABEL: Record<string, string> = {
   idle: 'Ready',
@@ -92,8 +94,19 @@ export default function App() {
     reset();
   }, [reset]);
 
+  // The ping each Raw location measured this session, for the picker. Keyed on
+  // the site the result came from, not the current selection, which may have
+  // moved on since the test started.
+  const [rawPings, setRawPings] = useState<Record<string, number>>({});
+  const rawResult = state.results.raw;
+  useEffect(() => {
+    const site = rawResult?.server?.site;
+    if (!site || !(rawResult.pingMs > 0)) return;
+    setRawPings((p) => ({ ...p, [site]: rawResult.pingMs }));
+  }, [rawResult]);
+
   const shownMode = state.active ?? mode;
-  const { meta: liveMeta, loading: metaLoading } = useMeta(mode, rawServerId);
+  const { meta: liveMeta, loading: metaLoading } = useMeta();
   const world = useWorld(shownMode, reducedMotion);
 
   const bothDone = state.kind === 'both' && state.results.bdix && state.results.raw;
@@ -160,13 +173,14 @@ export default function App() {
 
         {USING_MOCKS && (
           <div className="mono w-full rounded-lg border border-amber-400/20 bg-amber-400/5 px-4 py-2.5 text-center text-[10px] leading-relaxed text-amber-200/70">
-            Endpoints point at localhost. These figures come from the local mock server and measure
-            nothing real until VITE_BDIX_URL and VITE_RAW_URL are set.
+            Endpoints point at localhost. These figures come from the local mock servers and measure
+            nothing real until VITE_BDIX_URL is set and VITE_MLAB_LOCATE_URL is removed.
           </div>
         )}
 
         {route.name === 'shared' && <SharedResultView id={route.id} />}
         {route.name === 'leaderboard' && <Leaderboard />}
+        {route.name === 'privacy' && <PrivacyView />}
 
         {route.name === 'home' && !bothDone && (
           <>
@@ -250,6 +264,7 @@ export default function App() {
                   disabled={state.running}
                   accent={world.accent}
                   glowRgb={world.glowRgb}
+                  pings={rawPings}
                 />
               </div>
             )}
@@ -299,6 +314,23 @@ export default function App() {
                 Run both
               </button>
             </div>
+
+            {/* M-Lab asks that a test start only with informed consent, and
+                both Go in Raw mode and Run both start one, so the notice sits
+                with the buttons rather than in the Raw panel alone. */}
+            <p className="mono max-w-md text-center text-[9px] leading-relaxed text-[var(--faint)]">
+              Raw runs on Measurement Lab&apos;s open servers, which publish every result with your IP
+              address. Starting Raw or Run both means you accept{' '}
+              <a
+                href={MLAB.privacyUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="underline decoration-[var(--line)] underline-offset-2 hover:text-[var(--text)]"
+              >
+                M-Lab&apos;s privacy policy
+              </a>
+              .
+            </p>
           </>
         )}
 
@@ -340,8 +372,18 @@ export default function App() {
           )}
           <span className="max-w-xl">
             Local is measured against a Cloudflare edge inside Bangladesh, which reaches most local
-            ISPs over BDIX peering. It approximates a BDIX server rather than being one.
+            ISPs over BDIX peering. It approximates a BDIX server rather than being one. Raw is
+            measured against Measurement Lab&apos;s servers abroad, physical machines on 10 Gbps
+            transit with no CDN in front.
           </span>
+          {route.name !== 'privacy' && (
+            <button
+              onClick={() => navigate('/privacy')}
+              className="cursor-pointer uppercase tracking-[0.2em] transition-colors hover:text-[var(--text)]"
+            >
+              Privacy
+            </button>
+          )}
         </footer>
       </main>
     </div>

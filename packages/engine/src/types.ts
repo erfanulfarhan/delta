@@ -35,6 +35,12 @@ export interface TransferResult {
   buckets: Bucket[];
   bytesTotal: number;
   durationMs: number;
+  /**
+   * Where the bytes were counted, when a transfer could count them in more
+   * than one place: the server's kernel, or the browser. Absent for Local,
+   * which only ever counts in the browser.
+   */
+  basis?: 'server' | 'client';
 }
 
 export interface Meta {
@@ -46,11 +52,22 @@ export interface Meta {
   server: string;
 }
 
+/** Which machine a run measured against, when that is not implied by the mode. */
+export interface ServerInfo {
+  provider: 'delta' | 'mlab';
+  /** M-Lab site code, for example `sin01`. */
+  site?: string;
+  machine?: string;
+  city?: string;
+  country?: string;
+}
+
 export interface RunResult {
   mode: string;
   session: string;
   /** Signed byte-count attestations from the endpoint, for server-side checking. */
   tokens: string[];
+  server?: ServerInfo;
   downloadMbps: number;
   uploadMbps: number;
   pingMs: number;

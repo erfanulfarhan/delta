@@ -44,10 +44,13 @@ function Row({ label, value, hint, accent }: {
 export function ServerCard({ meta, loading, mode, accent, rawServerId }: Props) {
   const endpoint = ENDPOINTS[mode];
 
+  // Raw's server is known before anything loads: it is whichever M-Lab site
+  // is selected. Local's is wherever Cloudflare happens to answer from.
+  const known = mode === 'raw';
   const serverLine = (() => {
     if (mode === 'raw') {
       const s = rawServer(rawServerId);
-      return `${s.city} (${s.id})`;
+      return `M-Lab ${s.city} (${s.id})`;
     }
     if (!meta) return endpoint.label;
     const colo = (meta as Meta & { colo?: string }).colo;
@@ -59,8 +62,8 @@ export function ServerCard({ meta, loading, mode, accent, rawServerId }: Props) 
     <div className="panel w-full max-w-xl divide-y divide-[var(--line-soft)] overflow-hidden rounded-xl">
       <Row
         label="Server"
-        value={loading ? 'checking…' : serverLine}
-        hint={meta ? endpoint.shortLabel : undefined}
+        value={loading && !known ? 'checking…' : serverLine}
+        hint={meta || known ? endpoint.shortLabel : undefined}
         accent={accent}
       />
       <Row label="Your IP" value={loading ? '…' : (meta?.ip || 'unknown')} />

@@ -3,18 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Delta Speed Test — BDIX vs International Speed Test for Bangladesh</title>
+    <title>Delta Speed Test: BDIX vs International Speed Test for Bangladesh</title>
     <link rel="canonical" href="https://deltaspeed.pages.dev/" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta name="theme-color" content="#07060f" />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Delta Speed Test" />
-    <meta property="og:title" content="Delta Speed Test — BDIX vs International Speed for Bangladesh" />
+    <meta property="og:title" content="Delta Speed Test: BDIX vs International Speed for Bangladesh" />
     <meta property="og:description" content="Free speed test for Bangladesh. Measure your BDIX (local) speed and your real international speed in one run, plus check whether your IP is shared and whether ports are reachable for torrent seeding." />
     <meta property="og:url" content="https://deltaspeed.pages.dev/" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Delta Speed Test — BDIX vs International Speed" />
+    <meta name="twitter:title" content="Delta Speed Test: BDIX vs International Speed" />
     <meta name="twitter:description" content="Measure your BDIX speed and your real international speed, and see the gap between them." />
 
     <script type="application/ld+json">
@@ -51,7 +51,7 @@
       <!-- Server-rendered fallback: replaced by the app on mount. Exists so the
            page is not an empty div to a crawler that does not run JavaScript. -->
       <article style="max-width:44rem;margin:0 auto;padding:3rem 1.25rem;font-family:system-ui,sans-serif;color:#e7e6f0">
-        <h1>Delta Speed Test — BDIX and international speed, measured separately</h1>
+        <h1>Delta Speed Test: BDIX and international speed, measured separately</h1>
         <p>
           Every internet connection in Bangladesh really has two speeds. Traffic that stays
           inside the country over BDIX peering is fast and cheap for your ISP to carry.
@@ -65,9 +65,9 @@
         </p>
         <h2>What it measures</h2>
         <ul>
-          <li><strong>Local (BDIX)</strong> — download and upload against a server inside Bangladesh.</li>
-          <li><strong>Raw (international)</strong> — the same test against a server abroad, with a choice of Singapore, Mumbai or Tokyo.</li>
-          <li><strong>Ping and jitter</strong> — latency and how steady it is, for each path.</li>
+          <li><strong>Local (BDIX)</strong>: download and upload against a server inside Bangladesh.</li>
+          <li><strong>Raw (international)</strong>: the same test against <a href="https://www.measurementlab.net/" style="color:inherit">Measurement Lab</a>'s open servers in Singapore, Mumbai or Tokyo. They are physical machines on 10 Gbps transit with no CDN in front, so the test really crosses your ISP's international capacity. M-Lab publishes each result, with your IP address, as open data.</li>
+          <li><strong>Ping and jitter</strong>: latency and how steady it is, for each path.</li>
         </ul>
         <h2>Why local and international speeds differ in Bangladesh</h2>
         <p>
@@ -86,9 +86,9 @@
           will not seed, game hosting fails, and you cannot reach your own NAS from outside.
         </p>
         <ul>
-          <li><strong>Inbound reachability test</strong> — a server in Singapore tries to open real TCP connections back to your address. Nothing needs to be open for this to work: a refused connection still proves traffic from the internet reaches you, which is exactly what carrier NAT takes away.</li>
-          <li><strong>Shared or public IP check</strong> — detects carrier NAT address space and reads your reverse DNS for the names ISPs use for shared and dynamic addresses.</li>
-          <li><strong>Specific port check</strong> — if you have forwarded a port for seeding or hosting, test that it is actually reachable.</li>
+          <li><strong>Inbound reachability test</strong>: a server in Singapore tries to open real TCP connections back to your address. Nothing needs to be open for this to work: a refused connection still proves traffic from the internet reaches you, which is exactly what carrier NAT takes away.</li>
+          <li><strong>Shared or public IP check</strong>: detects carrier NAT address space and reads your reverse DNS for the names ISPs use for shared and dynamic addresses.</li>
+          <li><strong>Specific port check</strong>: if you have forwarded a port for seeding or hosting, test that it is actually reachable.</li>
         </ul>
         <p>Enable JavaScript to run the test.</p>
       </article>

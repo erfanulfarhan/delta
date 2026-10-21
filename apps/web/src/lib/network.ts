@@ -1,7 +1,9 @@
-import { RAW_SERVERS } from '../config';
-
-/** Tools live on the Singapore endpoint, which runs Node and can open sockets. */
-const TOOLS_BASE = RAW_SERVERS.find((s) => s.id === 'sin1')?.baseUrl ?? '';
+/**
+ * Tools live on Delta's Singapore function, which runs Node and can open
+ * sockets back to the visitor. It no longer carries Raw's speed test (M-Lab
+ * does), but probing reachability from abroad is still exactly its job.
+ */
+const TOOLS_BASE = 'https://delta-sin1.vercel.app/api';
 
 export interface IpInfo {
   ip: string;

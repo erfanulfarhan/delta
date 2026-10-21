@@ -1,5 +1,5 @@
 /// <reference lib="webworker" />
-import { run, type RunEvent, type RunResult } from '@speedtest/engine';
+import { run, runMlab, type MlabClient, type RunEvent, type RunResult } from '@speedtest/engine';
 
 /**
  * The measurement runs here, off the main thread, and this is a correctness
@@ -11,12 +11,15 @@ import { run, type RunEvent, type RunResult } from '@speedtest/engine';
  * low. The effect is worst on weak devices, which means the site would be
  * least accurate for exactly the users whose connections are most in doubt.
  *
- * XMLHttpRequest, which the upload phase depends on for progress events, is
- * available in dedicated workers. Service workers would not do.
+ * XMLHttpRequest, which Local's upload depends on for progress events, and
+ * WebSocket, which Raw runs over, are both available in dedicated workers.
+ * Service workers would not do.
  */
 
-export type WorkerRequest = {
+/** Local: Delta's own endpoint, over HTTP. */
+export type LocalRequest = {
   type: 'run';
+  provider: 'delta';
   baseUrl: string;
   origins?: string[];
   mode: string;
@@ -24,6 +27,23 @@ export type WorkerRequest = {
   session: string;
   transferMs?: number;
 };
+
+/** Raw: a Measurement Lab site, over WebSocket. */
+export type MlabRequest = {
+  type: 'run';
+  provider: 'mlab';
+  site: string;
+  label: string;
+  locateUrl: string;
+  /** Delta's endpoint, which knows the visitor's ISP and city. M-Lab does not. */
+  metaUrl: string;
+  client: MlabClient;
+  mode: string;
+  session: string;
+  transferMs?: number;
+};
+
+export type WorkerRequest = LocalRequest | MlabRequest;
 
 export type WorkerResponse =
   | { type: 'event'; event: RunEvent }
@@ -33,17 +53,33 @@ export type WorkerResponse =
 const post = (message: WorkerResponse) => self.postMessage(message);
 
 self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
-  if (e.data?.type !== 'run') return;
+  const req = e.data;
+  if (req?.type !== 'run') return;
+  const onEvent = (event: RunEvent) => post({ type: 'event', event });
+  const config = req.transferMs ? { transferMs: req.transferMs } : undefined;
 
   try {
-    const result = await run({
-      baseUrl: e.data.baseUrl,
-      origins: e.data.origins,
-      mode: e.data.mode,
-      session: e.data.session,
-      config: e.data.transferMs ? { transferMs: e.data.transferMs } : undefined,
-      onEvent: (event) => post({ type: 'event', event }),
-    });
+    const result =
+      req.provider === 'mlab'
+        ? await runMlab({
+            site: req.site,
+            label: req.label,
+            client: req.client,
+            mode: req.mode,
+            session: req.session,
+            locateUrl: req.locateUrl,
+            metaUrl: req.metaUrl,
+            config,
+            onEvent,
+          })
+        : await run({
+            baseUrl: req.baseUrl,
+            origins: req.origins,
+            mode: req.mode,
+            session: req.session,
+            config,
+            onEvent,
+          });
     post({ type: 'result', result });
   } catch (error) {
     post({ type: 'error', message: error instanceof Error ? error.message : String(error) });

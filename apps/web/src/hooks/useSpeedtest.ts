@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Phase, RunResult } from '@speedtest/engine';
-import { baseUrlFor, originsFor, type ModeId } from '../config';
+import { LOCAL_ORIGINS, LOCAL_URL, MLAB, rawServer, type ModeId } from '../config';
 import type { WorkerRequest, WorkerResponse } from '../worker/measure.worker';
 
 export type TestKind = 'single' | 'both';
@@ -49,12 +49,28 @@ function newSession(): string {
   ).join('');
 }
 
-/** Run one endpoint to completion in a fresh worker. */
+/** What the worker measures for one leg: Delta's endpoint for Local, M-Lab for Raw. */
+function requestFor(mode: ModeId, session: string, rawServerId: string): WorkerRequest {
+  if (mode === 'raw') {
+    const server = rawServer(rawServerId);
+    return {
+      type: 'run',
+      provider: 'mlab',
+      site: server.id,
+      label: server.city,
+      locateUrl: MLAB.locateUrl,
+      metaUrl: LOCAL_URL,
+      client: MLAB.client,
+      mode,
+      session,
+    };
+  }
+  return { type: 'run', provider: 'delta', baseUrl: LOCAL_URL, origins: LOCAL_ORIGINS, mode, session };
+}
+
+/** Run one leg to completion in a fresh worker. */
 function measure(
-  mode: ModeId,
-  session: string,
-  baseUrl: string,
-  origins: string[],
+  request: WorkerRequest,
   onEvent: (phase: Phase, mbps: number, progress: number, downloadMbps?: number) => void,
 ): { promise: Promise<RunResult>; cancel: () => void } {
   const worker = createWorker();
@@ -77,13 +93,6 @@ function measure(
       reject(new Error(e.message || 'measurement worker failed'));
     };
 
-    const request: WorkerRequest = {
-      type: 'run',
-      baseUrl,
-      origins,
-      mode,
-      session,
-    };
     worker.postMessage(request);
   });
 
@@ -124,9 +133,8 @@ export function useSpeedtest() {
         phase: 'latency',
       }));
 
-      const url = baseUrlFor(id, rawServerId);
-      const origins = originsFor(id, rawServerId);
-      const { promise, cancel } = measure(id, session, url, origins, (phase, mbps, progress, downloadMbps) => {
+      const request = requestFor(id, session, rawServerId);
+      const { promise, cancel } = measure(request, (phase, mbps, progress, downloadMbps) => {
         if (!aliveRef.current) return;
         setState((s) =>
           s.active === id

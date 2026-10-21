@@ -20,6 +20,8 @@ const COLO_NAMES: Record<string, string> = {
   DEL: 'Delhi',
   MAA: 'Chennai',
   CGP: 'Chittagong',
+  // Where one Bangladeshi ISP routed half of Cloudflare's addresses.
+  MRS: 'Marseille',
 };
 
 function Row({ label, value, hint, accent }: {
@@ -53,7 +55,7 @@ export function ServerCard({ meta, loading, mode, accent, rawServerId }: Props) 
       return `M-Lab ${s.city} (${s.id})`;
     }
     if (!meta) return endpoint.label;
-    const colo = (meta as Meta & { colo?: string }).colo;
+    const colo = meta.colo;
     if (!colo) return meta.server;
     return COLO_NAMES[colo] ? `${COLO_NAMES[colo]} (${colo})` : colo;
   })();

@@ -5,7 +5,7 @@ main script:
 
 | Piece | Where | Deployed by |
 | --- | --- | --- |
-| Local endpoint | Cloudflare Worker `delta-local` (plus mirrors `-2`, `-3`, `-4`) | `scripts/deploy-cloudflare.sh` |
+| Local endpoint | Cloudflare Worker `delta-local`, on `local1` to `local4.erfanul.me` | `scripts/deploy-cloudflare.sh` |
 | Site | Cloudflare Pages project `deltaspeed` | `scripts/deploy-cloudflare.sh` |
 | Raw | Measurement Lab's servers | nothing: M-Lab runs them |
 | IP and port tools | Vercel function `delta-sin1`, pinned to Singapore | `scripts/deploy-region.sh sin1` |
@@ -15,11 +15,12 @@ main script:
 ```
 
 It reads `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` from
-`~/.erfanul-secrets.env`, deploys the Worker, checks it answers, builds the site
-against it and publishes the build to Pages. The site is served at
-`https://deltaspeed.pages.dev`. Never assume the subdomain from the project name:
-Cloudflare suffixes it when the name is taken globally, which is how an older
-project ended up at `delta-b4x.pages.dev`.
+`~/.erfanul-secrets.env`, deploys the Worker and its mirrors, checks it
+answers, builds the site against it and publishes the build to Pages. The site
+is served at `https://deltaspeed.pages.dev`. Never assume the subdomain from the
+project name: Cloudflare suffixes it when the name is taken globally, which is
+how an older project ended up at `delta-b4x.pages.dev` (it now redirects to the
+site).
 
 ## 1. Local endpoint (Cloudflare Worker)
 
@@ -36,20 +37,40 @@ wrangler deploy
 The token needs the **Workers Scripts: Edit** permission. R2 keys will not work;
 those are S3-style credentials and cannot deploy a Worker.
 
-Verify it is actually being served from Dhaka:
+The site does not measure through the `workers.dev` address. The Worker has four
+**Custom Domains**, `local1.erfanul.me` to `local4.erfanul.me`, attached in the
+dashboard (Workers & Pages › delta-local › Settings › Domains & Routes), on the
+`erfanul.me` zone, which has **HTTP/3 switched off** (Speed › Settings ›
+Protocol Optimization). Two rules keep that working:
+
+- **No `routes` in `wrangler.toml`.** Wrangler only rewrites routes when its
+  config declares them, so leaving them out is what keeps the dashboard's
+  domains through every deploy. Declaring them would also need a token with
+  Zone › Workers Routes › Edit.
+- **HTTP/3 stays off on the zone.** Chrome over HTTP/3 read 501 Mbps on a line
+  this Worker fills at 826 over HTTP/2. The deploy script warns if the domain
+  starts advertising HTTP/3 again.
+
+The four names give the browser four separate picks of the zone's two anycast
+addresses, and the site measures only through the ones whose connection reached
+the nearest PoP (see the README). When none did, it falls back to the
+`workers.dev` addresses of `delta-local` and of its mirrors `delta-local-2` to
+`-4`. The deploy script redeploys the mirrors with the same code, so keep them.
+
+Verify it is actually being served from Dhaka, through both of the zone's
+addresses, since an ISP can route them differently:
 
 ```sh
-curl -s https://delta-local.erfanul100.workers.dev/meta | jq
+for ip in $(dig +short local1.erfanul.me); do
+  curl -s --resolve "local1.erfanul.me:443:$ip" https://local1.erfanul.me/meta | jq -r "\"$ip \" + .colo"
+done
 ```
 
-`colo` should read `DAC` (Dhaka). If it reports a foreign PoP, your ISP does not
-reach Cloudflare locally and this endpoint is not measuring BDIX for you. In
-that case rent a genuinely BDIX-peered VPS and point `VITE_BDIX_URL` at it; the
-contract is identical, so nothing else changes.
-
-The mirrors exist only so the browser opens more than one connection (see the
-README). They run the same code under different names and are redeployed by
-hand when the Worker changes.
+`colo` should read `DAC` (Dhaka) for at least one of them. If both report a
+foreign PoP, your ISP does not reach this zone locally; check the `workers.dev`
+address the same way. If nothing reaches Dhaka, this endpoint is not measuring
+BDIX for you. In that case rent a genuinely BDIX-peered VPS and point
+`VITE_BDIX_URL` at it; the contract is identical, so nothing else changes.
 
 ## 2. Raw (Measurement Lab)
 

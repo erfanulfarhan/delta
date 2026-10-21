@@ -43,6 +43,14 @@ if [[ -z "$WORKER_URL" ]]; then
 fi
 echo "    Local endpoint: $WORKER_URL"
 
+# The same code under three more names. Their workers.dev addresses are the
+# fallback the site turns to when none of the custom domains reaches the
+# nearest PoP, so they must run what delta-local runs.
+for n in 2 3 4; do
+  $WRANGLER deploy --name "delta-local-$n" >/dev/null
+done
+echo "    Mirrors delta-local-2 to -4 redeployed"
+
 echo "==> 2/4  Checking the endpoint answers"
 # Retried: a freshly created workers.dev route 404s for a few seconds before it
 # propagates, which is not a deployment failure.
@@ -62,12 +70,28 @@ fi
 COLO="$(curl -fsS --max-time 15 "$WORKER_URL/meta" | sed -n 's/.*"colo":"\([^"]*\)".*/\1/p' || true)"
 echo "    /ping ok, served from PoP: ${COLO:-unknown}"
 
+# The site measures through the Worker's custom domains on erfanul.me, not
+# through workers.dev: that zone has HTTP/3 switched off, and Chrome over
+# HTTP/3 read 501 Mbps on a line the Worker fills at 826 over HTTP/2. The
+# domains are attached in the dashboard, so this file declares no routes, and
+# wrangler leaves them alone on deploy.
+LOCAL_URL="${LOCAL_URL:-https://local1.erfanul.me}"
+if ! curl -fsS --max-time 15 "$LOCAL_URL/ping" -o /dev/null 2>/dev/null; then
+  echo "    $LOCAL_URL does not answer. Is the custom domain still attached to delta-local?" >&2
+  exit 1
+fi
+if curl -sS -o /dev/null -D - --max-time 15 "$LOCAL_URL/ping" | grep -qi '^alt-svc:.*h3'; then
+  echo "    WARNING: $LOCAL_URL advertises HTTP/3. Switch it off for erfanul.me" >&2
+  echo "    (Speed > Settings > Protocol Optimization) or Local will under-read in Chrome." >&2
+fi
+echo "    Local measured via: $LOCAL_URL"
+
 echo "==> 3/4  Building the site against that endpoint"
 cd "$ROOT/apps/web"
 # Raw needs no URL: it runs on Measurement Lab. VITE_MLAB_LOCATE_URL is emptied
 # on purpose, because Vite also reads .env.local, and a local mock address left
 # there would otherwise be compiled into the live site.
-VITE_BDIX_URL="$WORKER_URL" \
+VITE_BDIX_URL="$LOCAL_URL" \
 VITE_MLAB_LOCATE_URL="" \
 VITE_SUPABASE_URL="${VITE_SUPABASE_URL:-}" \
 VITE_SUPABASE_ANON_KEY="${VITE_SUPABASE_ANON_KEY:-}" \
@@ -94,5 +118,5 @@ SITE_URL="${SITE_URL:-https://${PROJECT}.pages.dev}"
 
 echo
 echo "Done."
-echo "  Local endpoint : $WORKER_URL"
+echo "  Local endpoint : $LOCAL_URL (Worker also at $WORKER_URL)"
 echo "  Site           : $SITE_URL"

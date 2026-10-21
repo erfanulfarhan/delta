@@ -113,20 +113,29 @@ export const rawServer = (id: string): RawServer =>
   RAW_SERVERS.find((s) => s.id === id) ?? RAW_SERVERS[0]!;
 
 /**
- * Mirrors of the local endpoint.
+ * Every hostname the Local Worker answers on.
  *
- * All four are the same Worker code served from the same Dhaka PoP. They exist
- * purely so the browser can open more than one connection: requests to a single
- * origin share one HTTP/2 connection whose throughput is the real ceiling, and
- * on a 470 Mbps link that capped the result at about 234 Mbps no matter how many
- * streams were opened.
+ * They are on erfanul.me, a Cloudflare zone with HTTP/3 switched off, rather
+ * than on workers.dev, because Chrome's HTTP/3 was the ceiling. On a wired
+ * 1 Gbps line the same Worker read 501 Mbps in Chrome over HTTP/3 and 826 over
+ * HTTP/2, against 833 for plain curl: Chrome's QUIC runs in user space and
+ * gives out first. workers.dev advertises HTTP/3 with no way to turn it off,
+ * and only a zone of your own has the switch.
+ *
+ * Four names rather than one because each is a separate draw of the zone's two
+ * anycast addresses, and an ISP can route those to different PoPs; the engine
+ * keeps the names that reached the nearest (see nearestOrigins). The
+ * workers.dev mirrors are the fallback for when none of them did: on HTTP/3,
+ * so slower in Chrome, but on other addresses.
+ *
+ * Any other LOCAL_URL, such as the mock in development, is used on its own.
  */
-export const LOCAL_ORIGINS: string[] = [
-  LOCAL_URL,
-  'https://delta-local-2.erfanul100.workers.dev',
-  'https://delta-local-3.erfanul100.workers.dev',
-  'https://delta-local-4.erfanul100.workers.dev',
-];
+const ZONE_ORIGINS = [1, 2, 3, 4].map((n) => `https://local${n}.erfanul.me`);
+const WORKERS_DEV_ORIGINS = ['', '-2', '-3', '-4'].map((n) => `https://delta-local${n}.erfanul100.workers.dev`);
+
+const onZone = ZONE_ORIGINS.includes(LOCAL_URL);
+export const LOCAL_ORIGINS: string[] = onZone ? ZONE_ORIGINS : [LOCAL_URL];
+export const LOCAL_FALLBACK: string[] = onZone ? WORKERS_DEV_ORIGINS : [];
 
 export const AVAILABLE: Record<ModeId, boolean> = {
   bdix: Boolean(env.VITE_BDIX_URL) || import.meta.env.DEV,

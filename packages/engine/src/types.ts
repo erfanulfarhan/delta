@@ -50,6 +50,8 @@ export interface Meta {
   city: string;
   country: string;
   server: string;
+  /** Cloudflare PoP that answered, for example `DAC`. Absent where there is none. */
+  colo?: string;
 }
 
 /** Which machine a run measured against, when that is not implied by the mode. */
@@ -85,12 +87,13 @@ export interface EngineConfig {
   /**
    * Equivalent origins for the same server, used round-robin across streams.
    *
-   * A browser multiplexes every request to one origin over a single HTTP/2
-   * connection, and that connection is the ceiling: measured on a 470 Mbps link,
-   * eight streams to one origin reached 234 Mbps and sixteen reached no more,
-   * while eight streams split across two origins reached 423. Extra hostnames
-   * are the only way a browser can open extra connections. curl never hit this
-   * because separate processes already meant separate connections.
+   * A browser gives each origin a single connection, so extra hostnames are the
+   * only way it opens extra connections. Over HTTP/3 that connection was the
+   * ceiling: on a 470 Mbps link, eight streams to one origin reached 234 Mbps
+   * and sixteen no more, while eight split across two origins reached 423. Over
+   * HTTP/2 it is not, at least to 1 Gbps: one connection carried 841 Mbps and two
+   * carried 834. Each origin is also a separate draw of the endpoint's anycast
+   * addresses, which is what nearestOrigins relies on.
    *
    * Every origin must share the signing secret, or attestations from the
    * mirrors will not verify.

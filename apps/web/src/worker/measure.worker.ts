@@ -22,6 +22,7 @@ export type LocalRequest = {
   provider: 'delta';
   baseUrl: string;
   origins?: string[];
+  fallbackOrigins?: string[];
   mode: string;
   /** Shared across both legs of a run-both so their attestations judge as one. */
   session: string;
@@ -75,6 +76,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
         : await run({
             baseUrl: req.baseUrl,
             origins: req.origins,
+            fallbackOrigins: req.fallbackOrigins,
             mode: req.mode,
             session: req.session,
             config,

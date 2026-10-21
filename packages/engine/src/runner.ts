@@ -1,8 +1,9 @@
 import { measureDownload } from './download.js';
 import { measureLatency } from './latency.js';
+import { nearestOrigins } from './origins.js';
 import { measureUpload } from './upload.js';
 import { DEFAULT_CONFIG } from './types.js';
-import type { EngineConfig, Meta, Phase, RunResult } from './types.js';
+import type { EngineConfig, Phase, RunResult } from './types.js';
 
 export interface RunEvent {
   phase: Phase;
@@ -25,37 +26,14 @@ export interface RunOptions {
   baseUrl: string;
   /** Equivalent mirrors of the same server; see EngineConfig.origins. */
   origins?: string[];
+  /** Used only if none of `origins` reaches the nearest PoP; see nearestOrigins. */
+  fallbackOrigins?: string[];
   mode: string;
   /** Supplied by the caller so a run-both pair can share one session. */
   session?: string;
   config?: Partial<Omit<EngineConfig, 'baseUrl' | 'mode' | 'session'>>;
   onEvent?: (event: RunEvent) => void;
   signal?: AbortSignal;
-}
-
-/**
- * Metadata is decoration. Losing it must never fail a measurement, and waiting
- * for it must never delay one: both runners start measuring only once it is
- * back, so an endpoint that accepts the connection and then stalls would
- * otherwise hold a run on "Latency" until the browser gave up on it.
- */
-const META_TIMEOUT_MS = 3000;
-
-export async function fetchMeta(baseUrl: string, signal?: AbortSignal): Promise<Meta | null> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), META_TIMEOUT_MS);
-  const forward = () => controller.abort();
-  signal?.addEventListener('abort', forward, { once: true });
-  try {
-    const response = await fetch(`${baseUrl}/meta`, { cache: 'no-store', signal: controller.signal });
-    if (!response.ok) return null;
-    return (await response.json()) as Meta;
-  } catch {
-    return null;
-  } finally {
-    clearTimeout(timer);
-    signal?.removeEventListener('abort', forward);
-  }
 }
 
 /**
@@ -148,25 +126,31 @@ export async function run(options: RunOptions): Promise<RunResult> {
       b.toString(16).padStart(2, '0'),
     ).join('');
 
-  const cfg: EngineConfig = {
-    ...DEFAULT_CONFIG,
-    ...options.config,
-    baseUrl: options.baseUrl.replace(/\/$/, ''),
-    origins: (options.origins ?? [options.baseUrl]).map((o) => o.replace(/\/$/, '')),
-    mode: options.mode,
-    session,
-  };
-
   const tokens: string[] = [];
   const collect = (token: string) => tokens.push(token);
   const emit = options.onEvent ?? (() => {});
   const startedAt = new Date().toISOString();
+  const trim = (o: string) => o.replace(/\/$/, '');
 
   emit({ phase: 'latency', mbps: 0, progress: 0 });
-  const [latency, meta] = await Promise.all([
-    measureLatency(cfg.baseUrl, cfg.pingSamples, options.signal),
-    fetchMeta(cfg.baseUrl, options.signal),
-  ]);
+  // Before anything is timed, so that ping, download and upload all run over
+  // connections that reached the same PoP.
+  const { origins, meta } = await nearestOrigins(
+    (options.origins ?? [options.baseUrl]).map(trim),
+    (options.fallbackOrigins ?? []).map(trim),
+    options.signal,
+  );
+
+  const cfg: EngineConfig = {
+    ...DEFAULT_CONFIG,
+    ...options.config,
+    baseUrl: origins[0]!,
+    origins,
+    mode: options.mode,
+    session,
+  };
+
+  const latency = await measureLatency(cfg.baseUrl, cfg.pingSamples, options.signal);
 
   emit({ phase: 'download', mbps: 0, progress: 0 });
   const downMeter = liveMeter(900, 400);

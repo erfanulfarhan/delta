@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Phase, RunResult } from '@speedtest/engine';
-import { AVAILABLE, LOCAL_ORIGINS, LOCAL_URL, MLAB, rawServer, type ModeId } from '../config';
+import { AVAILABLE, LOCAL_FALLBACK, LOCAL_ORIGINS, LOCAL_URL, MLAB, rawServer, type ModeId } from '../config';
 import type { WorkerRequest, WorkerResponse } from '../worker/measure.worker';
 
 export type TestKind = 'single' | 'both';
@@ -67,7 +67,15 @@ function requestFor(mode: ModeId, session: string, rawServerId: string): WorkerR
       session,
     };
   }
-  return { type: 'run', provider: 'delta', baseUrl: LOCAL_URL, origins: LOCAL_ORIGINS, mode, session };
+  return {
+    type: 'run',
+    provider: 'delta',
+    baseUrl: LOCAL_URL,
+    origins: LOCAL_ORIGINS,
+    fallbackOrigins: LOCAL_FALLBACK,
+    mode,
+    session,
+  };
 }
 
 /** Run one leg to completion in a fresh worker. */

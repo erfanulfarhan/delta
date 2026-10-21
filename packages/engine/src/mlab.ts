@@ -1,5 +1,6 @@
 import { median, summarise } from './aggregate.js';
-import { fetchMeta, liveMeter, type RunEvent } from './runner.js';
+import { fetchMeta } from './origins.js';
+import { liveMeter, type RunEvent } from './runner.js';
 import { DEFAULT_CONFIG } from './types.js';
 import type { ByteSample, EngineConfig, LatencyResult, Meta, RunResult, TransferResult } from './types.js';
 

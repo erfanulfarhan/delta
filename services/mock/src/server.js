@@ -12,12 +12,17 @@ import { sign } from '../../../packages/attest/src/index.ts';
  *
  *   MOCK_MBPS=5 MOCK_LATENCY_MS=2  node src/server.js
  *   MOCK_MBPS=900 MOCK_LATENCY_MS=180 PORT=8081 node src/server.js
+ *
+ * MOCK_COLO makes /meta report a Cloudflare PoP, as the Worker does, so tests
+ * can stand mirrors in different places. GET /stats counts requests by path.
  */
 const PORT = Number(process.env.PORT ?? 8080);
 const MBPS = Number(process.env.MOCK_MBPS ?? 0); // 0 = unthrottled
 const LATENCY_MS = Number(process.env.MOCK_LATENCY_MS ?? 0);
 const JITTER_MS = Number(process.env.MOCK_JITTER_MS ?? 0);
 const LABEL = process.env.MOCK_LABEL ?? 'mock';
+const COLO = process.env.MOCK_COLO;
+const counts = { ping: 0, download: 0, upload: 0, meta: 0 };
 
 const MAX_BYTES = 128 * 1024 * 1024;
 const BLOCK = 64 * 1024;
@@ -170,6 +175,9 @@ const server = createServer(async (req, res) => {
     return res.end();
   }
 
+  const counted = url.pathname.slice(1);
+  if (counted in counts) counts[counted] += 1;
+
   try {
     switch (url.pathname) {
       case '/ping': {
@@ -193,8 +201,12 @@ const server = createServer(async (req, res) => {
             city: 'Localhost',
             country: 'XX',
             server: `${LABEL} @ ${MBPS || 'unthrottled'} Mbps`,
+            ...(COLO ? { colo: COLO } : {}),
           }),
         );
+      case '/stats':
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify(counts));
       default:
         res.writeHead(404);
         return res.end();

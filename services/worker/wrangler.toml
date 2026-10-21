@@ -2,8 +2,11 @@ name = "delta-local"
 main = "src/index.js"
 compatibility_date = "2026-08-01"
 
-# No routes block: the workers.dev subdomain is the endpoint. Attach a custom
-# domain later if you want, but it changes nothing about the measurement.
+# No routes block, on purpose. The site measures through custom domains
+# (local1 to local4.erfanul.me) attached in the dashboard, and wrangler only
+# rewrites routes when this file declares them, so leaving them out is what
+# keeps those domains through a deploy. workers.dev stays on: its address, and
+# those of the mirrors deployed from this same file, are the fallback.
 workers_dev = true
 
 [vars]

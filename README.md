@@ -8,7 +8,7 @@ Bangladesh is also the world's largest river delta.
 | | |
 | --- | --- |
 | Site | https://deltaspeed.pages.dev (Cloudflare Pages) |
-| Local | https://delta-local.erfanul100.workers.dev and three mirrors (Cloudflare Worker, PoP `DAC`) |
+| Local | `local1.erfanul.me` to `local4.erfanul.me`, one Cloudflare Worker (`delta-local`, PoP `DAC`) on a zone with HTTP/3 off |
 | Raw | [Measurement Lab](https://www.measurementlab.net/) servers in Singapore (`sin01`), Mumbai (`bom02`) and Tokyo (`hnd02`) |
 | IP and port tools | https://delta-sin1.vercel.app/api (Vercel function, Singapore) |
 
@@ -92,12 +92,28 @@ the download, reporting artificially low speeds on exactly the weakest devices.
 
 ### Local
 
-Eight concurrent HTTP streams, sharded across four hostnames of the same Worker.
-A browser multiplexes every request to one origin over a single HTTP/2
-connection, and that connection was the ceiling: on a 470 Mbps line, eight
-streams to one origin reached 234 Mbps, while eight streams over two origins
-reached 423. Uploads use `XMLHttpRequest`, because `fetch` still exposes no
-upload progress in most browsers.
+Eight concurrent HTTP streams to a Cloudflare Worker. Uploads use
+`XMLHttpRequest`, because `fetch` still exposes no upload progress in most
+browsers.
+
+The Worker is reached through custom domains on `erfanul.me`, a Cloudflare zone
+with HTTP/3 switched off, and not through `workers.dev`. Chrome's HTTP/3 (QUIC)
+runs in user space and gave out long before the line did: on a wired 1 Gbps
+connection the same Worker read 501 Mbps in Chrome over HTTP/3 and 826 over
+HTTP/2, against 833 for plain curl. `workers.dev` always advertises HTTP/3, and
+only a zone of your own can turn it off. Raw is unaffected, because WebSockets
+run over TCP. HTTP/3 was also why a single connection used to be a ceiling
+(eight streams to one origin read 234 Mbps on a 470 Mbps line); over HTTP/2
+one connection carried 841 Mbps.
+
+There are four hostnames, `local1` to `local4`, for a different reason.
+Cloudflare answers each with two anycast addresses, and an ISP can route the
+two to different places: on the line Delta was tuned on, one address was served
+from Dhaka and the other from Marseille, and Chrome chose between them per
+hostname, sending about a third of connections to France. So before measuring,
+the engine asks each hostname which PoP its connection reached, times it, and
+measures only through the ones on the nearest PoP. If none got there, it falls
+back to the Worker's `workers.dev` addresses, which are different ones.
 
 ### Raw
 

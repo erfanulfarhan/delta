@@ -17,7 +17,10 @@ main script:
 It reads `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` from
 `~/.erfanul-secrets.env`, deploys the Worker and its mirrors, checks it
 answers, builds the site against it and publishes the build to Pages. The site
-is served at `https://deltaspeed.pages.dev`. Never assume the subdomain from the
+is served at `https://deltaspeed.erfanul.me`, a custom domain on the Pages
+project `deltaspeed`. Its `pages.dev` address still serves the same build, and
+a check at the top of `index.html` forwards visitors from it to the custom
+domain with the path kept. Never assume a `pages.dev` subdomain from the
 project name: Cloudflare suffixes it when the name is taken globally, which is
 how an older project ended up at `delta-b4x.pages.dev` (it now redirects to the
 site).
@@ -183,7 +186,7 @@ Finally, lock down CORS on the Worker so other sites cannot bill your requests
 to run their own speedtests:
 
 ```sh
-wrangler secret put ALLOWED_ORIGINS      # https://deltaspeed.pages.dev
+wrangler secret put ALLOWED_ORIGINS      # https://deltaspeed.erfanul.me
 ```
 
 ## Verification

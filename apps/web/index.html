@@ -4,7 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Delta Speed Test: BDIX vs International Speed Test for Bangladesh</title>
-    <link rel="canonical" href="https://deltaspeed.pages.dev/" />
+    <script>
+      // The site moved to deltaspeed.erfanul.me. Pages cannot redirect its own
+      // pages.dev address server side, so old links are forwarded here, before
+      // anything else loads, keeping the path (share links included).
+      if (location.hostname === 'deltaspeed.pages.dev') {
+        location.replace('https://deltaspeed.erfanul.me' + location.pathname + location.search + location.hash);
+      }
+    </script>
+    <link rel="canonical" href="https://deltaspeed.erfanul.me/" />
     <meta name="robots" content="index, follow, max-image-preview:large" />
     <meta name="theme-color" content="#07060f" />
 
@@ -12,7 +20,7 @@
     <meta property="og:site_name" content="Delta Speed Test" />
     <meta property="og:title" content="Delta Speed Test: BDIX vs International Speed for Bangladesh" />
     <meta property="og:description" content="Free speed test for Bangladesh. Measure your BDIX (local) speed and your real international speed in one run, plus check whether your IP is shared and whether ports are reachable for torrent seeding." />
-    <meta property="og:url" content="https://deltaspeed.pages.dev/" />
+    <meta property="og:url" content="https://deltaspeed.erfanul.me/" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Delta Speed Test: BDIX vs International Speed" />
     <meta name="twitter:description" content="Measure your BDIX speed and your real international speed, and see the gap between them." />
@@ -23,7 +31,7 @@
       "@type": "WebApplication",
       "name": "Delta Speed Test",
       "alternateName": ["Delta Speedtest", "Delta BDIX Speed Test"],
-      "url": "https://deltaspeed.pages.dev/",
+      "url": "https://deltaspeed.erfanul.me/",
       "applicationCategory": "UtilitiesApplication",
       "operatingSystem": "Any",
       "browserRequirements": "Requires JavaScript",

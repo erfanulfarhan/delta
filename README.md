@@ -3,11 +3,11 @@
 Δ is the difference between two measurements, which is what this site reports.
 Bangladesh is also the world's largest river delta.
 
-**Live: https://deltaspeed.pages.dev**
+**Live: https://deltaspeed.erfanul.me**
 
 | | |
 | --- | --- |
-| Site | https://deltaspeed.pages.dev (Cloudflare Pages) |
+| Site | https://deltaspeed.erfanul.me (Cloudflare Pages; the old `deltaspeed.pages.dev` forwards there) |
 | Local | `local1.erfanul.me` to `local4.erfanul.me`, one Cloudflare Worker (`delta-local`, PoP `DAC`) on a zone with HTTP/3 off |
 | Raw | [Measurement Lab](https://www.measurementlab.net/) servers in Singapore (`sin01`), Mumbai (`bom02`) and Tokyo (`hnd02`) |
 | IP and port tools | https://delta-sin1.vercel.app/api (Vercel function, Singapore) |

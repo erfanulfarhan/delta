@@ -1,7 +1,18 @@
-# Raw endpoint (Singapore)
+# Singapore function: IP and port tools (formerly the Raw endpoint)
 
-The international side of Delta. Deployed as its own Vercel project so its
-bandwidth is metered separately from the site.
+**What the site uses it for now:** `/api/ipinfo` and `/api/portcheck`, the
+shared-IP check and the inbound reachability test. Both need a server abroad
+that can open TCP connections back to the visitor, which a Cloudflare Worker
+cannot do.
+
+**What it no longer does:** carry Raw's speed test. Raw runs on Measurement
+Lab's servers (see the main README for why), and the site no longer calls this
+project's `/ping`, `/download`, `/upload` or `/meta`. They still exist, and so
+do the region projects (`delta-bom1`, `delta-hnd1`) and Singapore mirrors
+(`delta-sin1-2` to `-4`) deployed for that job; those can be deleted.
+
+The notes below describe it as it was built, as the Raw endpoint. Deployed as
+its own Vercel project so its bandwidth is metered separately from the site.
 
 ## Why Vercel, and why not the Edge runtime
 

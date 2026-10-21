@@ -1,10 +1,14 @@
-# Setting up the Oracle Singapore box (Raw endpoint)
+# Setting up an Oracle Singapore box (optional self-hosted Raw)
+
+**Not needed for the live site.** Raw now runs on Measurement Lab's servers,
+which solved the problem this box was meant to solve: a plain host with a
+direct public IP in Singapore, instead of Vercel, which proxied through a
+nearby edge (ping 128 ms instead of the true ~50 ms, throughput capped around
+126 Mbps). Keep this guide for running Raw on hardware of your own, for example
+to avoid M-Lab publishing test data. See "Self-hosting Raw instead" in
+`DEPLOYING.md` for what else changes.
 
 What you do in the browser, and what to hand over afterwards. Roughly 15 minutes.
-
-The goal is a plain host with a direct public IP in Singapore. That is the whole
-point: Vercel proxies through a nearby edge, which is why its ping reads 128 ms
-instead of the true ~50 ms and why its throughput caps around 126 Mbps.
 
 ## 0. Account
 

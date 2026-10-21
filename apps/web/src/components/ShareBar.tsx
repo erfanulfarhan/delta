@@ -17,7 +17,7 @@ export function ShareBar({ shortId, verified, saving }: Props) {
   const [copied, setCopied] = useState(false);
 
   if (saving) {
-    return <p className="mono text-[10px] text-[var(--faint)]">Saving result…</p>;
+    return <p className="text-[12.5px] text-[var(--faint)]">Saving result…</p>;
   }
   if (!shortId) return null;
 
@@ -25,8 +25,8 @@ export function ShareBar({ shortId, verified, saving }: Props) {
 
   return (
     <div className="flex flex-col items-center gap-2">
-      <div className="panel flex items-center gap-3 rounded-full py-2 pr-2 pl-5">
-        <span className="mono max-w-[240px] truncate text-[10px] text-[var(--muted)]">{url}</span>
+      <div className="chip flex items-center gap-3 py-1.5 pr-1.5 pl-5">
+        <span className="mono max-w-[240px] truncate text-[12px] text-[var(--muted)]">{url}</span>
         <button
           onClick={async () => {
             try {
@@ -37,12 +37,12 @@ export function ShareBar({ shortId, verified, saving }: Props) {
               setCopied(false);
             }
           }}
-          className="mono cursor-pointer rounded-full bg-[var(--ink-700)] px-4 py-1.5 text-[9px] tracking-[0.18em] text-[var(--text)] uppercase transition-opacity hover:opacity-80"
+          className="cursor-pointer rounded-full bg-white/10 px-4 py-1.5 text-[12px] font-medium text-[var(--text)] transition-colors hover:bg-white/15"
         >
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
-      <span className="mono text-[9px] tracking-[0.14em] text-[var(--faint)]">
+      <span className="text-[12px] text-[var(--faint)]">
         {verified
           ? 'Verified · counts toward the ISP leaderboard'
           : 'Unverified · shareable, but excluded from the leaderboard'}

@@ -4,14 +4,14 @@ import { SHARING_ENABLED } from '../lib/supabase';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-2">
-      <h2 className="mono text-[10px] uppercase tracking-[0.26em] text-[var(--muted)]">{title}</h2>
-      <div className="flex flex-col gap-2 text-[13px] leading-relaxed text-[var(--text)]">{children}</div>
+    <section className="grid gap-3 border-t border-[var(--line)] pt-6 sm:grid-cols-[180px_1fr] sm:gap-8">
+      <h2 className="label pt-1">{title}</h2>
+      <div className="flex flex-col gap-3 text-[15px] leading-relaxed text-[var(--muted)]">{children}</div>
     </section>
   );
 }
 
-const linkClass = 'underline decoration-[var(--line)] underline-offset-2 hover:text-[var(--text)]';
+const linkClass = 'link underline-soft';
 
 /**
  * What each part of the site sends, and to whom.
@@ -21,10 +21,11 @@ const linkClass = 'underline decoration-[var(--line)] underline-offset-2 hover:t
  */
 export function PrivacyView() {
   return (
-    <div className="rise flex w-full max-w-xl flex-col gap-7">
-      <div className="flex flex-col gap-2">
-        <span className="display text-[24px] font-semibold">Privacy</span>
-        <p className="text-[13px] leading-relaxed text-[var(--muted)]">
+    <div className="rise flex w-full max-w-2xl flex-col gap-8">
+      <div className="flex flex-col gap-3">
+        <span className="label">What leaves your browser</span>
+        <h1 className="text-[44px] font-light tracking-[-0.035em]">Privacy</h1>
+        <p className="max-w-xl text-[16px] leading-relaxed text-[var(--muted)]">
           Delta has no accounts and keeps no record of who ran a test. This is what each part of the
           site sends, and to whom.
         </p>
@@ -51,7 +52,7 @@ export function PrivacyView() {
           sends to any site, which name the browser and its version.
         </p>
         <p>
-          A Raw test only starts when you press Go in Raw mode or Run both. Doing so means you accept{' '}
+          A Raw test only starts when you press GO with Raw or Both selected. Doing so means you accept{' '}
           <a className={linkClass} href={MLAB.privacyUrl} target="_blank" rel="noreferrer">
             M-Lab&apos;s privacy policy
           </a>
@@ -84,10 +85,13 @@ export function PrivacyView() {
       )}
 
       <button
-        onClick={() => navigate('/')}
-        className="panel cursor-pointer self-center rounded-full px-7 py-3 text-[11px] tracking-[0.18em] text-[var(--muted)] uppercase transition-colors hover:text-[var(--text)]"
+        onClick={() => {
+          navigate('/');
+          window.scrollTo({ top: 0 });
+        }}
+        className="chip link cursor-pointer self-start px-6 py-2.5 text-[13px] font-medium"
       >
-        Back to test
+        Back to the test
       </button>
     </div>
   );

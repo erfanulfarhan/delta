@@ -7,7 +7,10 @@ interface Props {
   height?: number;
 }
 
-const MAX_POINTS = 240;
+// 60 ms apart, so the width holds 18 seconds: one leg's ping, download and
+// upload, start to finish. The trace is a timeline that fills from left to
+// right as the test goes, rather than a strip that scrolls.
+const MAX_POINTS = 300;
 
 /**
  * Live throughput trace.
@@ -55,6 +58,10 @@ export function Trace({ mbps, accent, glowRgb, active, height = 52 }: Props) {
     const draw = () => {
       const points = pointsRef.current;
       ctx.clearRect(0, 0, width, height);
+
+      // Where the trace is heading, so a short one reads as early, not small.
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.fillRect(0, height - 1, width, 1);
 
       if (points.length > 1) {
         const peak = Math.max(...points, 1);

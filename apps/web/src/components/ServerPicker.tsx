@@ -4,8 +4,6 @@ interface Props {
   selected: string;
   onSelect: (id: string) => void;
   disabled: boolean;
-  accent: string;
-  glowRgb: string;
   /** Ping measured by a Raw test this session, by site id. */
   pings: Record<string, number>;
 }
@@ -17,53 +15,39 @@ interface Props {
  * test measured. Distance is the honest stand-in: latency is the part of a
  * connection you cannot buy your way out of, and it follows distance closely.
  *
- * There is no live ping here any more, deliberately. M-Lab's servers have no
- * ping endpoint, and opening a test connection just to time it would be
- * recorded by M-Lab as a test and spend one of the visitor's 40 a day.
+ * There is no live ping here, deliberately. M-Lab's servers have no ping
+ * endpoint, and opening a test connection just to time it would be recorded by
+ * M-Lab as a test and spend one of the visitor's 40 a day.
+ *
+ * No flags: Windows renders flag emoji as two bare letters.
  */
-export function ServerPicker({ selected, onSelect, disabled, accent, glowRgb, pings }: Props) {
+export function ServerPicker({ selected, onSelect, disabled, pings }: Props) {
   return (
-    <div className="w-full max-w-xl">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="mono text-[9px] uppercase tracking-[0.26em] text-[var(--muted)]">
-          Raw server
-        </span>
-        <span className="mono text-[9px] tracking-[0.16em] text-[var(--faint)]">
-          M-Lab · 10 Gbps
-        </span>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2.5">
+    <div className="flex flex-col items-center gap-2.5">
+      <span className="label">Raw server · M-Lab, 10 Gbps</span>
+      <div className="flex flex-wrap justify-center gap-2" role="radiogroup" aria-label="Raw server">
         {RAW_SERVERS.map((server) => {
           const isSelected = server.id === selected;
           const ping = pings[server.id];
-
           return (
             <button
               key={server.id}
+              role="radio"
+              aria-checked={isSelected}
               onClick={() => onSelect(server.id)}
               disabled={disabled}
-              aria-pressed={isSelected}
               title={`M-Lab ${server.id}, on ${server.transit}`}
-              className="panel flex cursor-pointer flex-col items-center gap-1.5 rounded-xl px-3 py-3.5 transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-40"
+              className="chip flex cursor-pointer items-baseline gap-2 px-4 py-2 transition-all duration-300 hover:-translate-y-px disabled:cursor-not-allowed disabled:opacity-40"
               style={
                 isSelected
-                  ? {
-                      borderColor: `rgba(${glowRgb}, 0.55)`,
-                      background: `linear-gradient(180deg, rgba(${glowRgb}, 0.16), rgba(${glowRgb}, 0.03))`,
-                      boxShadow: `0 0 28px -8px rgba(${glowRgb}, 0.6)`,
-                    }
+                  ? { background: 'rgba(var(--glow), 0.14)', borderColor: 'rgba(var(--glow), 0.45)' }
                   : undefined
               }
             >
-              <span className="text-[17px] leading-none">{server.flag}</span>
-              <span
-                className="mono text-[10px] tracking-[0.12em]"
-                style={{ color: isSelected ? accent : 'var(--text)' }}
-              >
+              <span className="text-[13.5px] font-medium" style={{ color: isSelected ? 'var(--text)' : 'var(--muted)' }}>
                 {server.city}
               </span>
-              <span className="mono text-[9px] text-[var(--faint)]">
+              <span className="mono text-[11px] text-[var(--faint)]">
                 {ping !== undefined ? `${ping.toFixed(0)} ms` : `${server.km.toLocaleString('en-US')} km`}
               </span>
             </button>

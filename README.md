@@ -29,7 +29,7 @@ YouTube.
 | Path | What it is |
 | --- | --- |
 | `packages/engine` | The measurement engine. Framework-free TypeScript, no UI. Local takes a base URL; Raw takes an M-Lab site code. |
-| `apps/web` | React interface. Split-world visual, gauges, mode control. |
+| `apps/web` | React interface, "Delta flow": a river canvas behind a GO button that becomes the progress ring, with Local, Raw and Both. |
 | `services/mock` | Shaped mocks for testing both ends of the speed range: `server.js` for Local, `msak.js` for M-Lab. |
 | `services/worker` | Local endpoint. Cloudflare Worker. |
 | `services/raw-vercel` | IP and port tools, run from Singapore. Formerly the Raw endpoint. |

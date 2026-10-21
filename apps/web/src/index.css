@@ -1,112 +1,116 @@
 @import 'tailwindcss';
 
 /**
- * Deep indigo shell with vivid accents.
+ * Delta flow.
  *
- * The first pass was near-flat navy on near-black: legible but inert, and every
- * surface sat at the same depth so nothing drew the eye. This palette keeps a
- * dark base (a speedtest is read in one glance, and dark keeps the numerals the
- * brightest thing on screen) but adds violet in the shadows, real separation
- * between surface levels, and saturated accents that carry the two modes.
+ * A dark estuary: deep green inland, sea blue offshore. Local lives in the
+ * green and Raw in the blue, and the page crossfades between the two with the
+ * mode, because the subject is two places rather than two settings.
+ *
+ * Surfaces are translucent but never blurred. The river behind them moves on
+ * every frame, and a backdrop blur over moving content is recomputed on every
+ * frame too, which is exactly the main-thread and GPU time a weak phone needs
+ * for the measurement.
  */
 :root {
-  --ink-900: #080614;
-  --ink-850: #0e0b22;
-  --ink-800: #151130;
-  --ink-700: #1f1a45;
-  --line: #2b2459;
-  --line-soft: #211c48;
+  --bg: #030b0c;
+  --text: #ecf8f4;
+  --muted: rgba(236, 248, 244, 0.66);
+  --faint: rgba(236, 248, 244, 0.42);
+  --ghost: rgba(236, 248, 244, 0.2);
+  --line: rgba(255, 255, 255, 0.085);
+  --line-strong: rgba(255, 255, 255, 0.16);
 
-  --text: #f2f0ff;
-  --muted: #9d97c9;
-  --faint: #635d92;
+  /* Set live by App from the current world. These are Local's. */
+  --accent: #5fffc8;
+  --accent-2: #b4ffe6;
+  --glow: 95, 255, 200;
 
-  /* Local: spring green through teal. Raw: cyan through violet. */
-  --accent: #2ff0a8;
-  --accent-2: #59f5cf;
-  --glow: 47, 240, 168;
+  --bad: #ff9a85;
 
-  --warn: #ffb347;
+  --font-ui: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
-  --font-display: 'Space Grotesk', system-ui, sans-serif;
-  --font-ui: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 * { box-sizing: border-box; }
-html, body, #root { height: 100%; }
+html { background: var(--bg); color-scheme: dark; scroll-behavior: smooth; }
+html, body, #root { min-height: 100%; }
 
 body {
   margin: 0;
   font-family: var(--font-ui);
   color: var(--text);
-  background: var(--ink-900);
+  background: var(--bg);
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/**
- * Layered background.
- *
- * Two accent-tinted pools plus a magenta counterpoint, so the page has a
- * direction of light instead of a uniform wash. The accent-driven layers use
- * the live --glow, which means the whole page warms or cools with the mode
- * rather than only the gauge changing.
- */
-.shell {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
+::selection { background: rgba(var(--glow), 0.28); color: #fff; }
+
+/* ---------- Backdrop ---------- */
+
+/* Two estuaries stacked and crossfaded, since gradients themselves cannot be
+   transitioned. Opacity is the one property that crossfades for free. */
+.backdrop { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.backdrop > div { position: absolute; inset: 0; transition: opacity 1200ms var(--ease-in-out); }
+.backdrop .land {
   background:
-    radial-gradient(58% 42% at 50% -8%, rgba(var(--glow), 0.20) 0%, transparent 68%),
-    radial-gradient(46% 38% at 88% 8%, rgba(168, 85, 247, 0.16) 0%, transparent 70%),
-    radial-gradient(60% 46% at 8% 96%, rgba(var(--glow), 0.10) 0%, transparent 72%),
-    linear-gradient(180deg, var(--ink-850) 0%, var(--ink-900) 55%, #05040f 100%);
-  transition: background 900ms cubic-bezier(0.22, 1, 0.36, 1);
+    radial-gradient(75% 65% at 10% -5%, #0e3227 0%, transparent 60%),
+    radial-gradient(70% 70% at 105% 105%, #06283a 0%, transparent 62%),
+    linear-gradient(180deg, #041412 0%, #030b0c 55%, #020809 100%);
 }
+.backdrop .sea {
+  opacity: 0;
+  background:
+    radial-gradient(75% 65% at 10% -5%, #0c2436 0%, transparent 60%),
+    radial-gradient(75% 75% at 105% 105%, #0d2c5c 0%, transparent 62%),
+    linear-gradient(180deg, #040e19 0%, #030913 55%, #020610 100%);
+}
+[data-world='raw'] .backdrop .sea { opacity: 1; }
 
-/* Faint grid, so the dark area reads as a surface rather than a void. */
-.shell::before {
+/* Film grain, painted once. It stops the gradients banding into visible steps
+   on 8-bit panels, and gives the dark something to sit on. */
+.backdrop::after {
   content: '';
   position: absolute;
   inset: 0;
-  opacity: 0.5;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
-  background-size: 62px 62px;
-  mask-image: radial-gradient(70% 55% at 50% 42%, #000 0%, transparent 78%);
+  opacity: 0.06;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
-.display {
-  font-family: var(--font-display);
+.river { position: fixed; inset: 0; z-index: 1; pointer-events: none; width: 100%; height: 100%; transition: opacity 600ms linear; }
+.river-wrap { transition: opacity 900ms var(--ease-in-out); }
+
+/* ---------- Type ---------- */
+
+.label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.num {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.05em;
+  font-weight: 200;
+  line-height: 0.9;
 }
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.display { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; letter-spacing: -0.03em; }
 
-/* Raised surface with a lit top edge, so cards sit above the background. */
-.panel {
-  position: relative;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.014));
-  border: 1px solid var(--line);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    0 18px 44px -28px rgba(0, 0, 0, 0.9);
+.ink {
+  background: linear-gradient(180deg, #ffffff 30%, var(--accent-2) 115%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
-
-/* Accent hairline along the top of the key panels. */
-.panel-lit::after {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(var(--glow), 0.55), transparent);
-}
-
-.rule { height: 1px; background: linear-gradient(90deg, transparent, var(--line), transparent); }
-
 .accent-text {
   background: linear-gradient(120deg, var(--accent), var(--accent-2));
   -webkit-background-clip: text;
@@ -114,59 +118,198 @@ body {
   color: transparent;
 }
 
-/* Motion stays on transform and opacity, keeping it on the compositor and off
-   the thread that is meant to be counting bytes. */
-@keyframes rise {
-  from { opacity: 0; transform: translate3d(0, 12px, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
+.link { color: var(--muted); transition: color 200ms; }
+.link:hover { color: var(--text); }
+.underline-soft { text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+
+/* ---------- Surfaces ---------- */
+
+.panel {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.012)),
+    rgba(3, 13, 14, 0.62);
+  border: 1px solid var(--line);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 30px 70px -45px rgba(0, 0, 0, 0.95);
 }
-.rise { animation: rise 640ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.panel-lit::after {
+  content: '';
+  position: absolute;
+  inset: -1px -1px auto -1px;
+  height: 1px;
+  border-radius: inherit;
+  background: linear-gradient(90deg, transparent, rgba(var(--glow), 0.6), transparent);
+}
+.chip {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+.rule { height: 1px; background: linear-gradient(90deg, transparent, var(--line-strong), transparent); }
+
+/* ---------- GO, and the meter it becomes ----------
+   Not called .ring: Tailwind's ring utility would draw a 1px box shadow. */
+
+.core {
+  --go: 168px;
+  --ring: 252px;
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--ring);
+  height: var(--ring);
+}
+@media (min-width: 1024px) {
+  .core { --go: 184px; --ring: 296px; }
+}
+
+.go {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: var(--go);
+  height: var(--go);
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 24px;
+  letter-spacing: 0.26em;
+  text-indent: 0.26em;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(var(--glow), 0.2), transparent 62%),
+    rgba(2, 11, 12, 0.92);
+  box-shadow:
+    0 0 90px -18px rgba(var(--glow), 0.6),
+    inset 0 0 0 1px rgba(var(--glow), 0.16);
+  transition:
+    transform 500ms var(--ease-out),
+    opacity 400ms var(--ease-out),
+    box-shadow 500ms var(--ease-out);
+}
+/* The moving ring: a conic gradient masked down to a 2px band, rotated with a
+   transform so it stays on the compositor. */
+.go::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(from 0deg, var(--accent), transparent 32%, transparent 60%, var(--accent-2) 88%, var(--accent));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: spin 4.5s linear infinite;
+}
+.go::after {
+  content: '';
+  position: absolute;
+  inset: -24px;
+  border-radius: inherit;
+  border: 1px solid rgba(var(--glow), 0.3);
+  animation: breathe 3.4s var(--ease-in-out) infinite;
+  pointer-events: none;
+}
+.go:hover { transform: scale(1.045); box-shadow: 0 0 110px -14px rgba(var(--glow), 0.75), inset 0 0 0 1px rgba(var(--glow), 0.3); }
+.go:active { transform: scale(0.96); }
+.go:disabled { cursor: not-allowed; opacity: 0.45; }
+
+.meter {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  /* A dark lens, so the river passes behind the live figure, not through it. */
+  background: radial-gradient(closest-side, rgba(2, 11, 12, 0.94) 0%, rgba(2, 11, 12, 0.86) 74%, rgba(2, 11, 12, 0) 100%);
+  opacity: 0;
+  transform: scale(0.82);
+  pointer-events: none;
+  transition: transform 700ms var(--ease-out), opacity 500ms var(--ease-out);
+}
+.meter svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+/* Widths are in the meter's 100-unit viewBox, about 3px at either size. A
+   non-scaling stroke would be simpler to size, but Chrome then measures the
+   dash pattern in screen pixels and the progress arc repeats around the
+   circle. */
+.meter .track { fill: none; stroke: rgba(255, 255, 255, 0.07); stroke-width: 0.7; }
+.meter .arc {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px rgba(var(--glow), 0.8));
+  transition: stroke-dashoffset 350ms linear, stroke 600ms;
+}
+
+.core[data-running='true'] .go { opacity: 0; transform: scale(0.6); pointer-events: none; }
+.core[data-running='true'] .meter { opacity: 1; transform: none; pointer-events: auto; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.6; }
+  50% { transform: scale(1.08); opacity: 0.12; }
+}
+
+/* ---------- Motion ---------- */
+
+/* Everything moves on transform and opacity only, which keeps it on the
+   compositor and off the thread the page uses to count bytes. */
+@keyframes rise {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to { opacity: 1; transform: none; }
+}
+.rise { animation: rise 900ms var(--ease-out) both; }
+
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.fade { animation: fade 700ms var(--ease-out) both; }
+
+/* GO arriving: it grows into place rather than sliding, being the centre. */
+@keyframes pop {
+  from { opacity: 0; transform: scale(0.86); }
+  to { opacity: 1; transform: none; }
+}
+.pop { animation: pop 1100ms var(--ease-out) both; }
+
+/* Text that sits over the river keeps a soft shadow of the background behind
+   it, so a passing channel never cuts through a word. */
+.lift { text-shadow: 0 1px 14px rgba(3, 11, 12, 0.95), 0 0 2px rgba(3, 11, 12, 0.6); }
+/* Chrome paints text-shadow above a background-clipped fill, which would grey
+   the gradient numerals out. They are bright enough to need none. */
+.lift .ink { text-shadow: none; }
+
+/* Sections slide up as they scroll in. The class is added by an observer. */
+.reveal { opacity: 0; transform: translate3d(0, 22px, 0); transition: opacity 900ms var(--ease-out), transform 900ms var(--ease-out); }
+.reveal.in { opacity: 1; transform: none; }
 
 @keyframes live-pulse {
-  0%, 100% { opacity: 0.45; transform: scale(0.85); }
+  0%, 100% { opacity: 0.4; transform: scale(0.8); }
   50% { opacity: 1; transform: scale(1); }
 }
-.live-dot { animation: live-pulse 1.4s ease-in-out infinite; }
+.live-dot { animation: live-pulse 1.3s ease-in-out infinite; }
 
-@keyframes go-ring {
-  0% { transform: scale(1); opacity: 0.5; }
-  100% { transform: scale(1.75); opacity: 0; }
-}
-.go-ring { animation: go-ring 2.2s cubic-bezier(0.16, 1, 0.3, 1) infinite; }
+@keyframes dots { 0%, 20% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
+.dots span { animation: dots 1.2s infinite; }
+.dots span:nth-child(2) { animation-delay: 0.2s; }
+.dots span:nth-child(3) { animation-delay: 0.4s; }
 
-@keyframes shimmer {
-  to { background-position: 220% 0; }
-}
-.shimmer {
-  background-size: 220% 100%;
-  animation: shimmer 2.6s linear infinite;
-}
+/* ---------- Focus ---------- */
 
-button:focus-visible, [role='radio']:focus-visible {
+:where(button, a, input, [role='radio']):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
+  border-radius: 10px;
 }
+.go:focus-visible { outline-offset: 8px; border-radius: 999px; }
 
 @media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
-  .shell { transition: none; }
+  .reveal { opacity: 1; transform: none; }
 }
-
-/* The dial's entrance when a test starts: it sweeps up to meet the reading. */
-@keyframes dial-in {
-  0% { opacity: 0; transform: scale(0.9) rotate(-8deg); }
-  60% { opacity: 1; }
-  100% { opacity: 1; transform: scale(1) rotate(0deg); }
-}
-.dial-in { animation: dial-in 760ms cubic-bezier(0.16, 1, 0.3, 1) both; }
-
-/* Idle Go button: a soft breathing halo, so the one thing to press is obvious. */
-@keyframes go-halo {
-  0%, 100% { opacity: 0.35; transform: scale(1); }
-  50% { opacity: 0.75; transform: scale(1.06); }
-}
-.go-halo { animation: go-halo 2.8s ease-in-out infinite; }

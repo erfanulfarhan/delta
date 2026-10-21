@@ -502,7 +502,13 @@ function runPhase(
     // covering the window, a deadline, streams going quiet) is not all events.
     const tick = setInterval(() => {
       const s = started();
-      if (s === null) return;
+      if (s === null) {
+        // Every stream closed before a single byte: a server or middlebox that
+        // completes the upgrade and then drops the connection. Nothing more is
+        // coming, so say so now rather than at the hard stop.
+        if (sockets.length > 0 && sockets.every(closed)) finish();
+        return;
+      }
       const windowEnd = (server.first() ?? s) + cfg.transferMs;
       const covered = sockets.every(
         (ws, i) => closed(ws) || (timelines[i]!.coveredUntil() ?? -Infinity) >= windowEnd,

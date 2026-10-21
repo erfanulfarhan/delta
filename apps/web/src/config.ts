@@ -54,11 +54,16 @@ export const MLAB = {
 };
 
 /**
- * True when either path still points at localhost, meaning nothing real is
- * being measured. The interface says so out loud rather than presenting mock
- * figures as though they came from a network.
+ * Which paths point at localhost, meaning nothing real is measured there. The
+ * interface says so out loud rather than presenting mock figures as though
+ * they came from a network, and names the path, because the two are set
+ * separately and a development build often mocks only one.
  */
-export const USING_MOCKS = LOCAL_URL.includes('127.0.0.1') || MLAB.locateUrl.includes('127.0.0.1');
+export const MOCKED: Record<ModeId, boolean> = {
+  bdix: LOCAL_URL.includes('127.0.0.1'),
+  raw: MLAB.locateUrl.includes('127.0.0.1'),
+};
+export const USING_MOCKS = MOCKED.bdix || MOCKED.raw;
 
 /**
  * Selectable locations for the Raw side.

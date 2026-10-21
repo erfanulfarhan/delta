@@ -36,7 +36,7 @@ export type MlabRequest = {
   label: string;
   locateUrl: string;
   /** Delta's endpoint, which knows the visitor's ISP and city. M-Lab does not. */
-  metaUrl: string;
+  metaUrl?: string;
   client: MlabClient;
   mode: string;
   session: string;

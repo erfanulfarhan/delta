@@ -187,6 +187,51 @@ describe('M-Lab throughput against a shaped link', () => {
   }, 30_000);
 });
 
+describe('M-Lab failures end quickly, with words', () => {
+  const timed = async <T,>(work: Promise<T>) => {
+    const started = performance.now();
+    const outcome = await work.then(
+      (value) => ({ value, error: null as unknown }),
+      (error: unknown) => ({ value: null, error }),
+    );
+    return { ...outcome, ms: performance.now() - started };
+  };
+
+  it('reports a server that refuses every stream as unreachable', async () => {
+    const base = await startMock({ PORT: '8188', MOCK_FAIL: 'refuse' });
+    const target = await locateMlab('sin01', client, { locateUrl: base });
+    const { error, ms } = await timed(measureMlabDownload(target, cfg, client, () => {}, 'Singapore'));
+    expect(error).toBeInstanceOf(MlabError);
+    expect((error as Error).message).toMatch(/Could not connect to Measurement Lab's Singapore server/);
+    expect(ms).toBeLessThan(2000);
+  });
+
+  it('gives up at once when every stream opens and then drops', async () => {
+    // Without the check, this sat on a dead gauge until the hard stop, three
+    // windows long.
+    const base = await startMock({ PORT: '8187', MOCK_FAIL: 'drop' });
+    const target = await locateMlab('sin01', client, { locateUrl: base });
+    const { error, ms } = await timed(measureMlabDownload(target, cfg, client, () => {}, 'Singapore'));
+    expect(error).toBeInstanceOf(MlabError);
+    expect((error as Error).message).toMatch(/No data arrived/);
+    expect(ms).toBeLessThan(2000);
+  });
+
+  it('counts what reached the browser when the server never reports', async () => {
+    // Nothing covers the window on the server's timeline, so the phase ends at
+    // the coverage limit and the browser's own count is all there is.
+    const base = await startMock({ PORT: '8186', MOCK_MBPS: '30', MOCK_FAIL: 'no-reports' });
+    const target = await locateMlab('sin01', client, { locateUrl: base });
+    const { value, ms } = await timed(measureMlabDownload(target, cfg, client, () => {}, 'Singapore'));
+    expect(value?.transfer.basis).toBe('client');
+    expect(average(value!.transfer)).toBeGreaterThan(24);
+    expect(average(value!.transfer)).toBeLessThan(36);
+    // Ended by the coverage limit (the window plus 3 s), not the hard stop.
+    expect(ms).toBeGreaterThan(cfg.transferMs + 2500);
+    expect(ms).toBeLessThan(cfg.transferMs + 3000 + 2000);
+  }, 30_000);
+});
+
 describe('M-Lab full run', () => {
   it('takes ping from the kernel, not from timed requests, and names the machine', async () => {
     const base = await startMock({

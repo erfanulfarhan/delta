@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Phase, RunResult } from '@speedtest/engine';
-import { LOCAL_ORIGINS, LOCAL_URL, MLAB, rawServer, type ModeId } from '../config';
+import { AVAILABLE, LOCAL_ORIGINS, LOCAL_URL, MLAB, rawServer, type ModeId } from '../config';
 import type { WorkerRequest, WorkerResponse } from '../worker/measure.worker';
 
 export type TestKind = 'single' | 'both';
@@ -59,7 +59,9 @@ function requestFor(mode: ModeId, session: string, rawServerId: string): WorkerR
       site: server.id,
       label: server.city,
       locateUrl: MLAB.locateUrl,
-      metaUrl: LOCAL_URL,
+      // Only when Local exists. Without it LOCAL_URL is a localhost fallback,
+      // and Raw would go asking the visitor's own machine for their ISP.
+      metaUrl: AVAILABLE.bdix ? LOCAL_URL : undefined,
       client: MLAB.client,
       mode,
       session,

@@ -43,13 +43,10 @@ vercel env add SIGNING_SECRET production --token "$VERCEL_TOKEN"   # same value 
 vercel deploy --prod --token "$VERCEL_TOKEN"
 ```
 
-Then point the site at it and redeploy. Note the **`/api` suffix**: Vercel serves
-functions under `/api`, and the engine appends `/ping`, `/download` and so on to
-whatever base URL it is given.
-
-```sh
-VITE_RAW_URL=https://<deployment>.vercel.app/api ./scripts/deploy-cloudflare.sh
-```
+`./scripts/deploy-region.sh sin1` does all of this and checks the region. The
+site needs no rebuild afterwards: the tools' base URL is fixed in
+`apps/web/src/lib/network.ts`. Note the **`/api` suffix**: Vercel serves
+functions under `/api`.
 
 ## Verifying it is actually in Singapore
 

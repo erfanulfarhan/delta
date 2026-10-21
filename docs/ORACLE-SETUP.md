@@ -123,9 +123,10 @@ ingress rule for SSH is missing or the instance is still booting.
 
 I take it from there: open port 443 in the instance firewall and persist it,
 install Node and Caddy, deploy `services/origin` under systemd, obtain the
-certificate, point `VITE_RAW_URL` at the new host, redeploy the site, and verify
-that the region is genuinely Singapore, that ping reports ~50 ms rather than
-128 ms, and that throughput clears your 500-600 Mbps.
+certificate, add the host to the Raw server list as a server measured over the
+engine's HTTP path (see "Self-hosting Raw instead" in `DEPLOYING.md`), redeploy
+the site, and verify that the region is genuinely Singapore, that ping reports
+~50 ms, and that throughput clears your 500-600 Mbps.
 
 ## What this does not fix
 

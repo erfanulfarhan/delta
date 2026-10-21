@@ -33,14 +33,28 @@ export interface RunOptions {
   signal?: AbortSignal;
 }
 
+/**
+ * Metadata is decoration. Losing it must never fail a measurement, and waiting
+ * for it must never delay one: both runners start measuring only once it is
+ * back, so an endpoint that accepts the connection and then stalls would
+ * otherwise hold a run on "Latency" until the browser gave up on it.
+ */
+const META_TIMEOUT_MS = 3000;
+
 export async function fetchMeta(baseUrl: string, signal?: AbortSignal): Promise<Meta | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), META_TIMEOUT_MS);
+  const forward = () => controller.abort();
+  signal?.addEventListener('abort', forward, { once: true });
   try {
-    const response = await fetch(`${baseUrl}/meta`, { cache: 'no-store', signal });
+    const response = await fetch(`${baseUrl}/meta`, { cache: 'no-store', signal: controller.signal });
     if (!response.ok) return null;
     return (await response.json()) as Meta;
   } catch {
-    // Metadata is decoration. Losing it must never fail a measurement.
     return null;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', forward);
   }
 }
 

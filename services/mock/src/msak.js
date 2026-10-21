@@ -39,6 +39,11 @@ const BURST_MS = Number(process.env.MOCK_BURST_MS ?? 0);
 // mobile network's "TCP optimiser") that acknowledges data before the client
 // has it. The server's counter then runs ahead of what the client receives.
 const ACK_FACTOR = Number(process.env.MOCK_ACK_FACTOR ?? 1);
+// Failure modes, for the client's failure paths:
+//   refuse      answer every upgrade 503, as a busy server would
+//   drop        accept the upgrade, then drop the connection at once
+//   no-reports  send download data but never a measurement
+const FAIL = process.env.MOCK_FAIL ?? '';
 
 const SUBPROTOCOL = 'net.measurementlab.throughput.v1';
 const MIN_MESSAGE = 1 << 10;
@@ -162,14 +167,17 @@ async function runDownload(ws, req, durationMs) {
   // real server's measurer works independently of its writes.
   let timer;
   const report = () => {
-    if (!open) return;
+    if (!open || FAIL === 'no-reports') return;
     out(measurement(start, counters, first, req), false);
     first = false;
     timer = setTimeout(report, nextInterval());
   };
   timer = setTimeout(report, nextInterval());
 
-  while (open && performance.now() - start < durationMs) {
+  // A server that never reports does not stop on time either, so the client's
+  // own deadline is the only thing that ends the phase.
+  const runFor = FAIL === 'no-reports' ? durationMs * 4 : durationMs;
+  while (open && performance.now() - start < runFor) {
     await downBucket.take(size, (n) => {
       counters.sent += n;
     });
@@ -188,7 +196,7 @@ async function runDownload(ws, req, durationMs) {
   if (release) clearInterval(release);
   if (!open) return;
   for (const [data, binary] of held.splice(0)) ws.send(data, { binary });
-  ws.send(measurement(start, counters, false, req));
+  if (FAIL !== 'no-reports') ws.send(measurement(start, counters, false, req));
   ws.close(1000, 'Done sending');
 }
 
@@ -299,10 +307,12 @@ server.on('upgrade', (req, socket, head) => {
   // The real server answers 400 to both of these before upgrading.
   if (!kind || req.headers['sec-websocket-protocol'] !== SUBPROTOCOL) return reject(400);
   if (!url.searchParams.get('streams') || !url.searchParams.get('access_token')) return reject(400);
+  if (FAIL === 'refuse') return reject(503);
 
   stats.lastQuery = Object.fromEntries(url.searchParams);
   wss.handleUpgrade(req, socket, head, (ws) => {
     stats.connections[kind] += 1;
+    if (FAIL === 'drop') return ws.terminate();
     const durationMs = Number(url.searchParams.get('duration') ?? 5000);
     ws.on('error', () => {});
     if (kind === 'download') {

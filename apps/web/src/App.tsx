@@ -24,6 +24,7 @@ import {
   DEFAULT_RAW_SERVER,
   ENDPOINTS,
   MLAB,
+  MOCKED,
   rawServer,
   USING_MOCKS,
   type ModeId,
@@ -173,8 +174,11 @@ export default function App() {
 
         {USING_MOCKS && (
           <div className="mono w-full rounded-lg border border-amber-400/20 bg-amber-400/5 px-4 py-2.5 text-center text-[10px] leading-relaxed text-amber-200/70">
-            Endpoints point at localhost. These figures come from the local mock servers and measure
-            nothing real until VITE_BDIX_URL is set and VITE_MLAB_LOCATE_URL is removed.
+            {MOCKED.bdix && MOCKED.raw
+              ? 'Both paths point at local mock servers, so neither measures anything real until VITE_BDIX_URL is set and VITE_MLAB_LOCATE_URL is removed.'
+              : MOCKED.bdix
+                ? 'Local points at a local mock server and measures nothing real until VITE_BDIX_URL is set. Raw is measuring against M-Lab for real.'
+                : 'Raw points at a local mock of M-Lab and measures nothing real until VITE_MLAB_LOCATE_URL is removed. Local is measuring for real.'}
           </div>
         )}
 

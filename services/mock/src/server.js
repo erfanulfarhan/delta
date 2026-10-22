@@ -13,8 +13,12 @@ import { sign } from '../../../packages/attest/src/index.ts';
  *   MOCK_MBPS=5 MOCK_LATENCY_MS=2  node src/server.js
  *   MOCK_MBPS=900 MOCK_LATENCY_MS=180 PORT=8081 node src/server.js
  *
- * MOCK_COLO makes /meta report a Cloudflare PoP, as the Worker does, so tests
- * can stand mirrors in different places. GET /stats counts requests by path.
+ * MOCK_COLO makes /meta and every response's X-Delta-Colo name a Cloudflare
+ * PoP, as the Worker does, so tests can stand mirrors in different places.
+ * MOCK_FIRST_COLO overrides the first /meta answer only, the way a browser's
+ * first connection can reach a different PoP from the one it moves to.
+ * MOCK_SERVE_COLO overrides what transfers report, for a mirror whose /meta
+ * and transfers land in different places. GET /stats counts requests by path.
  */
 const PORT = Number(process.env.PORT ?? 8080);
 const MBPS = Number(process.env.MOCK_MBPS ?? 0); // 0 = unthrottled
@@ -22,6 +26,8 @@ const LATENCY_MS = Number(process.env.MOCK_LATENCY_MS ?? 0);
 const JITTER_MS = Number(process.env.MOCK_JITTER_MS ?? 0);
 const LABEL = process.env.MOCK_LABEL ?? 'mock';
 const COLO = process.env.MOCK_COLO;
+const FIRST_COLO = process.env.MOCK_FIRST_COLO;
+const SERVE_COLO = process.env.MOCK_SERVE_COLO ?? COLO;
 const counts = { ping: 0, download: 0, upload: 0, meta: 0 };
 
 const MAX_BYTES = 128 * 1024 * 1024;
@@ -44,7 +50,8 @@ function cors(res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Timing-Allow-Origin', '*');
-  res.setHeader('Access-Control-Expose-Headers', 'X-Delta-Attest');
+  res.setHeader('Access-Control-Expose-Headers', 'X-Delta-Attest, X-Delta-Colo');
+  if (SERVE_COLO) res.setHeader('X-Delta-Colo', SERVE_COLO);
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
   res.setHeader('Pragma', 'no-cache');
 }
@@ -192,6 +199,7 @@ const server = createServer(async (req, res) => {
       case '/upload':
         return drainUpload(req, res, url);
       case '/meta':
+        if (LATENCY_MS > 0) await sleep(delay());
         res.writeHead(200, { 'Content-Type': 'application/json' });
         return res.end(
           JSON.stringify({
@@ -201,7 +209,7 @@ const server = createServer(async (req, res) => {
             city: 'Localhost',
             country: 'XX',
             server: `${LABEL} @ ${MBPS || 'unthrottled'} Mbps`,
-            ...(COLO ? { colo: COLO } : {}),
+            ...(COLO ? { colo: FIRST_COLO && counts.meta === 1 ? FIRST_COLO : COLO } : {}),
           }),
         );
       case '/stats':

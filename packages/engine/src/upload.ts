@@ -59,6 +59,7 @@ export async function measureUpload(
   onToken?: (token: string) => void,
 ): Promise<TransferResult> {
   const samples: ByteSample[] = [];
+  const colos: Record<string, number> = {};
   let firstByteAt: number | null = null;
   let chunkSize = MIN_CHUNK * 4;
   let stopped = false;
@@ -138,6 +139,10 @@ export async function measureUpload(
         try {
           const token = xhr.getResponseHeader('X-Delta-Attest');
           if (token) onToken?.(token);
+          // Only a finished request says where it went, so uploads cut at the
+          // deadline add nothing here; the completed ones are a fair sample.
+          const colo = xhr.getResponseHeader('X-Delta-Colo');
+          if (colo) colos[colo] = (colos[colo] ?? 0) + lastLoaded;
         } catch {
           /* headers unavailable on an aborted request */
         }
@@ -179,5 +184,6 @@ export async function measureUpload(
   }
 
   const duration = firstByteAt === null ? 0 : Math.min(elapsed(), cfg.transferMs);
-  return summarise(samples, duration, cfg.bucketMs, cfg.rampFraction, cfg.trimFraction);
+  const result = summarise(samples, duration, cfg.bucketMs, cfg.rampFraction, cfg.trimFraction);
+  return Object.keys(colos).length > 0 ? { ...result, colos } : result;
 }

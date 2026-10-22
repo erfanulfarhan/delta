@@ -53,8 +53,12 @@ function corsHeaders(env, request) {
     'Timing-Allow-Origin': '*',
     // Without this the browser can see the attestation header exists but not
     // read it, and every result silently arrives unverified.
-    'Access-Control-Expose-Headers': 'X-Delta-Attest',
+    'Access-Control-Expose-Headers': 'X-Delta-Attest, X-Delta-Colo',
     'Cache-Control': 'no-store, no-cache, must-revalidate',
+    // Which PoP served this response. On every response rather than only
+    // /meta, because the connection a transfer runs on is not always the one
+    // /meta was asked on, and an ISP can route the two to different places.
+    'X-Delta-Colo': request.cf?.colo ?? '',
   };
 }
 

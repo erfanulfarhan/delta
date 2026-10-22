@@ -3,7 +3,7 @@ import { measureLatency } from './latency.js';
 import { nearestOrigins } from './origins.js';
 import { measureUpload } from './upload.js';
 import { DEFAULT_CONFIG } from './types.js';
-import type { EngineConfig, Phase, RunResult } from './types.js';
+import type { EngineConfig, Phase, RunResult, TransferResult } from './types.js';
 
 export interface RunEvent {
   phase: Phase;
@@ -118,6 +118,17 @@ export function liveMeter(windowMs = 900, tauMs = 400) {
  */
 const EMIT_INTERVAL_MS = 50;
 
+/** The PoP that served the most of a run's bytes, where the endpoint said. */
+function servedFrom(...transfers: TransferResult[]): string | undefined {
+  const bytes: Record<string, number> = {};
+  for (const t of transfers) {
+    for (const [colo, n] of Object.entries(t.colos ?? {})) bytes[colo] = (bytes[colo] ?? 0) + n;
+  }
+  let best: string | undefined;
+  for (const [colo, n] of Object.entries(bytes)) if (best === undefined || n > bytes[best]!) best = colo;
+  return best;
+}
+
 export async function run(options: RunOptions): Promise<RunResult> {
   const session =
     options.session ??
@@ -200,6 +211,12 @@ export async function run(options: RunOptions): Promise<RunResult> {
 
   emit({ phase: 'done', mbps: download.mbps, progress: 1, downloadMbps: download.mbps });
 
+  // The probe said where the connections were heading; the transfers say where
+  // the bytes came from, and the result describes the bytes. The two can
+  // differ when the browser moves a hostname to a new connection mid-run.
+  const served = servedFrom(download, upload);
+  const measured = meta && served ? { ...meta, colo: served } : meta;
+
   return {
     mode: cfg.mode,
     session,
@@ -211,7 +228,7 @@ export async function run(options: RunOptions): Promise<RunResult> {
     download,
     upload,
     latency,
-    meta,
+    meta: measured,
     startedAt,
   };
 }

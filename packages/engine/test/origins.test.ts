@@ -97,6 +97,18 @@ describe('choosing origins by where their connections land', () => {
     const choice = await nearestOrigins(DEAD);
     expect(choice).toEqual({ origins: DEAD, meta: null });
   });
+
+  it('judges a hostname by the connection it settles on, not its first answer', async () => {
+    // Over HTTP/3 the browser moves to a new connection after the first
+    // response, and that one can reach a different PoP. This mirror answers
+    // Dhaka once and Marseille from then on.
+    const moved = await startMock(8313, {
+      MOCK_FIRST_COLO: 'DAC',
+      MOCK_COLO: 'MRS',
+      MOCK_LATENCY_MS: '60',
+    });
+    expect((await nearestOrigins([moved, dhaka1])).origins).toEqual([dhaka1]);
+  });
 });
 
 /**
@@ -105,6 +117,7 @@ describe('choosing origins by where their connections land', () => {
  */
 class FetchXhr {
   upload: { onprogress: ((e: { loaded: number }) => void) | null } = { onprogress: null };
+  private headers: Headers | null = null;
   onload: (() => void) | null = null;
   onerror: (() => void) | null = null;
   onabort: (() => void) | null = null;
@@ -119,7 +132,8 @@ class FetchXhr {
 
   send(body: Blob) {
     fetch(this.url, { method: 'POST', body, signal: this.controller.signal })
-      .then(() => {
+      .then((response) => {
+        this.headers = response.headers;
         this.upload.onprogress?.({ loaded: body.size });
         this.onload?.();
       })
@@ -130,8 +144,8 @@ class FetchXhr {
     this.controller.abort();
   }
 
-  getResponseHeader() {
-    return null;
+  getResponseHeader(name: string) {
+    return this.headers?.get(name) ?? null;
   }
 }
 
@@ -155,11 +169,33 @@ describe('a run through mirrors that landed in different places', () => {
       expect(result.downloadMbps).toBeGreaterThan(0);
       expect(result.uploadMbps).toBeGreaterThan(0);
 
-      // The far mirror was only asked where it was, and timed once.
-      expect(await stats(farAway)).toEqual({ meta: 1, ping: 1, download: 0, upload: 0 });
+      // The far mirror was only asked where it was.
+      expect(await stats(farAway)).toEqual({ meta: 3, ping: 0, download: 0, upload: 0 });
       const used = await stats(nearby);
       expect(used.download).toBeGreaterThan(0);
       expect(used.upload).toBeGreaterThan(0);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  }, 30_000);
+
+  it('describes the PoP the bytes came from, when that is not where the probe landed', async () => {
+    const elsewhere = await startMock(8314, {
+      MOCK_COLO: 'DAC',
+      MOCK_SERVE_COLO: 'SIN',
+      MOCK_LATENCY_MS: '2',
+      MOCK_MBPS: '50',
+    });
+    vi.stubGlobal('XMLHttpRequest', FetchXhr);
+    try {
+      const result = await run({
+        baseUrl: elsewhere,
+        mode: 'test',
+        config: { transferMs: 1000, pingSamples: 3 },
+      });
+      expect(result.meta?.colo).toBe('SIN');
+      expect(Object.keys(result.download.colos ?? {})).toEqual(['SIN']);
+      expect(Object.keys(result.upload.colos ?? {})).toEqual(['SIN']);
     } finally {
       vi.unstubAllGlobals();
     }

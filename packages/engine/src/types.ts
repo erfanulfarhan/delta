@@ -41,6 +41,11 @@ export interface TransferResult {
    * which only ever counts in the browser.
    */
   basis?: 'server' | 'client';
+  /**
+   * Bytes by the PoP that served them, from each response's X-Delta-Colo.
+   * Absent where the endpoint does not say.
+   */
+  colos?: Record<string, number>;
 }
 
 export interface Meta {

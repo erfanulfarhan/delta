@@ -8,7 +8,8 @@ import type { Meta } from './types.js';
  */
 const META_TIMEOUT_MS = 3000;
 
-const salt = () => Math.random().toString(36).slice(2);
+/** One hostname's whole probe, however many requests it takes. */
+const PROBE_BUDGET_MS = 4000;
 
 /** Runs `work` under the metadata time limit, and reads any failure as null. */
 async function bounded<T>(
@@ -42,17 +43,34 @@ interface Probe {
   rttMs: number;
 }
 
+/**
+ * Where one hostname's connection lands, and how far away that is.
+ *
+ * Judged by the last of three requests, not the first. The first opens a
+ * connection, and over HTTP/3 Chrome then moves to a QUIC connection of its
+ * own, which can reach a different address and so a different PoP: one run
+ * read Singapore from the first request and timed Dhaka on the next. By the
+ * third the browser is on the connection the measurement goes on to use, and
+ * the first one's DNS, TCP and TLS setup is out of the timing too.
+ */
 async function probe(origin: string, signal?: AbortSignal): Promise<Probe | null> {
-  const meta = await fetchMeta(origin, signal);
-  if (!meta) return null;
-  // Timed on the connection the metadata request just opened, so this is one
-  // round trip rather than DNS, TCP and TLS setup.
-  const rttMs = await bounded(signal, async (limit) => {
-    const started = performance.now();
-    const response = await fetch(`${origin}/ping?salt=${salt()}`, { cache: 'no-store', signal: limit });
-    return response.ok ? performance.now() - started : null;
-  });
-  return rttMs === null ? null : { origin, meta, rttMs };
+  const budget = new AbortController();
+  const timer = setTimeout(() => budget.abort(), PROBE_BUDGET_MS);
+  const forward = () => budget.abort();
+  signal?.addEventListener('abort', forward, { once: true });
+  try {
+    let last: Probe | null = null;
+    for (let i = 0; i < 3; i += 1) {
+      const started = performance.now();
+      const meta = await fetchMeta(origin, budget.signal);
+      if (!meta) return null;
+      last = { origin, meta, rttMs: performance.now() - started };
+    }
+    return last;
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', forward);
+  }
 }
 
 export interface OriginChoice {

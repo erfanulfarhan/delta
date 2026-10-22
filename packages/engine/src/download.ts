@@ -30,6 +30,7 @@ export async function measureDownload(
   onToken?: (token: string) => void,
 ): Promise<TransferResult> {
   const samples: ByteSample[] = [];
+  const colos: Record<string, number> = {};
   let firstByteAt: number | null = null;
   let chunkSize = MIN_CHUNK * 4;
 
@@ -75,6 +76,7 @@ export async function measureDownload(
         // an attestation for a request that was cut short would credit bytes
         // that never arrived.
         token = response.headers.get('X-Delta-Attest');
+        const colo = response.headers.get('X-Delta-Colo');
         const reader = response.body?.getReader();
         if (!reader) return;
         for (;;) {
@@ -82,6 +84,7 @@ export async function measureDownload(
           if (done || value === undefined) break;
           received += value.byteLength;
           record(value.byteLength);
+          if (colo) colos[colo] = (colos[colo] ?? 0) + value.byteLength;
           if (expired()) {
             // Cancel rather than drain: without this a fast link keeps pulling
             // bytes after the measurement window has closed, which measures
@@ -115,5 +118,6 @@ export async function measureDownload(
   }
 
   const duration = firstByteAt === null ? 0 : Math.min(elapsed(), cfg.transferMs);
-  return summarise(samples, duration, cfg.bucketMs, cfg.rampFraction, cfg.trimFraction);
+  const result = summarise(samples, duration, cfg.bucketMs, cfg.rampFraction, cfg.trimFraction);
+  return Object.keys(colos).length > 0 ? { ...result, colos } : result;
 }

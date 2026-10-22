@@ -344,10 +344,10 @@ export default function App() {
 
         {route.name === 'home' && !running && (
           <div className="mx-auto grid w-full max-w-6xl items-start gap-5 px-5 pt-6 pb-12 sm:px-8 lg:grid-cols-[1.15fr_1fr] lg:gap-6">
-            <Reveal id="tools">
+            <Reveal id="tools" className="min-w-0">
               <NetworkTools />
             </Reveal>
-            <Reveal id="history" delay={120}>
+            <Reveal id="history" delay={120} className="min-w-0">
               <HistoryPanel entries={history} onCleared={() => setHistory([])} />
             </Reveal>
           </div>

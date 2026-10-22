@@ -70,7 +70,7 @@ export function ModeSwitch({ value, onChange, disabled }: Props) {
             disabled={disabled || !can}
             title={can ? option.hint : 'Not deployed yet'}
             onClick={() => onChange(option.id)}
-            className="relative z-10 min-w-[64px] cursor-pointer rounded-full px-3.5 py-2 text-[13px] font-medium transition-colors duration-300 disabled:cursor-not-allowed sm:min-w-[78px] sm:px-5"
+            className="relative z-10 min-w-[56px] cursor-pointer rounded-full px-3 py-2 text-[13px] font-medium transition-colors duration-300 disabled:cursor-not-allowed sm:min-w-[78px] sm:px-5"
             style={{ color: selected ? 'var(--text)' : 'var(--muted)', opacity: can ? 1 : 0.4 }}
           >
             {option.label}

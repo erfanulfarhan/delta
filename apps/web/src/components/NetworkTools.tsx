@@ -145,7 +145,7 @@ export function NetworkTools() {
             placeholder="51413"
             inputMode="numeric"
             aria-label="Port to test"
-            className="mono w-36 rounded-full border border-[var(--line)] bg-black/30 px-4 py-2.5 text-[13px] text-[var(--text)] outline-none transition-colors placeholder:text-[var(--ghost)] focus:border-[rgba(var(--glow),0.6)]"
+            className="mono w-0 min-w-0 flex-1 rounded-full border border-[var(--line)] bg-black/30 px-4 py-2.5 text-[13px] text-[var(--text)] outline-none transition-colors placeholder:text-[var(--ghost)] focus:border-[rgba(var(--glow),0.6)] sm:w-36 sm:flex-none"
           />
           <button
             onClick={runCustom}

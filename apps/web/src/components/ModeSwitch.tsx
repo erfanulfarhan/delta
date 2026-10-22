@@ -35,13 +35,17 @@ export function ModeSwitch({ value, onChange, disabled }: Props) {
       aria-label="What to measure"
       className="chip relative grid grid-cols-3 p-1"
       onKeyDown={(e) => {
-        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+        if (step === undefined || disabled) return;
         e.preventDefault();
-        const step = e.key === 'ArrowRight' ? 1 : -1;
+        const radios = e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="radio"]');
         for (let k = 1; k <= OPTIONS.length; k += 1) {
-          const next = OPTIONS[(index + step * k + OPTIONS.length * 2) % OPTIONS.length]!;
-          if (available(next.id)) {
-            onChange(next.id);
+          const at = (index + step * k + OPTIONS.length * 2) % OPTIONS.length;
+          if (available(OPTIONS[at]!.id)) {
+            onChange(OPTIONS[at]!.id);
+            // A radio group moves focus with the selection; otherwise focus is
+            // left on the option just unchecked, which is out of the tab order.
+            radios[at]?.focus();
             break;
           }
         }

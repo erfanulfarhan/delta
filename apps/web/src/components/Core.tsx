@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import type { Phase } from '@speedtest/engine';
 import { AnimatedNumber } from './AnimatedNumber';
 import { formatMbps } from '../lib/format';
@@ -12,17 +13,19 @@ interface Props {
   onGo: () => void;
   onStop: () => void;
   disabled: boolean;
-  /** What pressing GO will measure, for screen readers. */
-  goLabel: string;
+  /** What pressing GO will measure, read out after "GO" by screen readers. */
+  goHint: string;
+  /** Id of text a screen reader should read with GO, such as a consent notice. */
+  describedBy?: string;
 }
 
 const R = 47;
 const CIRCUMFERENCE = 2 * Math.PI * R;
 
 /**
- * How much of the ring a moment in the test fills.
+ * How much of the meter a moment in the test fills.
  *
- * The ping takes a second, the two transfers eight seconds each, so the ring
+ * The ping takes a second, the two transfers eight seconds each, so the meter
  * gives them that kind of share, in the order they run.
  */
 function filled(phase: Phase, progress: number): number {
@@ -43,28 +46,35 @@ const PHASE_NAME: Partial<Record<Phase, string>> = {
 /**
  * The middle of the page, always.
  *
- * Before and after a test it is GO. Pressed, it gives way to a ring that
+ * Before and after a test it is GO. Pressed, it gives way to a meter that
  * fills as the test runs, with the live speed at its centre, and it is GO
  * again in the same place once the figures have moved out to either side.
- * Both states stay mounted and crossfade, so the change is one motion rather
- * than a swap.
+ * Both stay mounted and crossfade, so the change is one motion rather than a
+ * swap; whichever is hidden is inert, out of reach of the keyboard and screen
+ * readers alike.
  */
-export function Core({ running, phase, live, progress, onGo, onStop, disabled, goLabel }: Props) {
+export function Core({ running, phase, live, progress, onGo, onStop, disabled, goHint, describedBy }: Props) {
   const offset = CIRCUMFERENCE * (1 - filled(phase, progress));
+  const goRef = useRef<HTMLButtonElement>(null);
+  const stopRef = useRef<HTMLButtonElement>(null);
+  const wasRunning = useRef(running);
+
+  // Focus follows the control. Pressing GO hides it, which would otherwise
+  // drop keyboard focus onto the page with nowhere sensible to go next.
+  useEffect(() => {
+    if (running === wasRunning.current) return;
+    wasRunning.current = running;
+    const lost = document.activeElement === document.body || document.activeElement === null;
+    if (running && (lost || document.activeElement === goRef.current)) stopRef.current?.focus();
+    if (!running && (lost || document.activeElement === stopRef.current)) goRef.current?.focus();
+  }, [running]);
 
   return (
     <div className="core" data-running={running}>
-      <div className="meter" aria-hidden={!running}>
-        <svg viewBox="0 0 100 100">
+      <div className="meter" inert={!running}>
+        <svg viewBox="0 0 100 100" aria-hidden="true">
           <circle className="track" cx="50" cy="50" r={R} />
-          <circle
-            className="arc"
-            cx="50"
-            cy="50"
-            r={R}
-            strokeDasharray={CIRCUMFERENCE}
-            strokeDashoffset={offset}
-          />
+          <circle className="arc" cx="50" cy="50" r={R} strokeDasharray={CIRCUMFERENCE} strokeDashoffset={offset} />
         </svg>
 
         <div className="relative flex flex-col items-center">
@@ -78,29 +88,32 @@ export function Core({ running, phase, live, progress, onGo, onStop, disabled, g
               ))}
             </span>
           ) : (
-            <AnimatedNumber
-              key={phase}
-              value={live}
-              from={0}
-              format={formatMbps}
-              stiffness={0.12}
-              className="num ink mt-2 text-[58px] lg:text-[72px]"
-            />
+            <>
+              <AnimatedNumber
+                key={phase}
+                value={live}
+                from={0}
+                format={formatMbps}
+                stiffness={0.12}
+                className="num ink mt-2 text-[58px] lg:text-[72px]"
+              />
+              <span className="mt-2 text-[13px] text-[var(--muted)]">Mbps</span>
+            </>
           )}
-          <span className="mt-2 text-[13px] text-[var(--muted)]">Mbps</span>
         </div>
 
         <button
+          ref={stopRef}
           onClick={onStop}
-          tabIndex={running ? 0 : -1}
           className="label absolute bottom-[15%] cursor-pointer rounded-full px-3 py-1.5 transition-colors hover:text-[var(--text)]"
         >
           Stop
         </button>
       </div>
 
-      <button className="go" onClick={onGo} disabled={disabled || running} aria-label={goLabel} tabIndex={running ? -1 : 0}>
+      <button ref={goRef} className="go" onClick={onGo} disabled={disabled} inert={running} aria-describedby={describedBy}>
         GO
+        <span className="sr-only">, {goHint}</span>
       </button>
     </div>
   );

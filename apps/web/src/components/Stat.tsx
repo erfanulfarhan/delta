@@ -52,7 +52,7 @@ export function Stat({ label, value, live = false, note, color, side = 'left' }:
         )}
         {label}
       </span>
-      <span className="text-[52px] sm:text-[68px] lg:text-[clamp(76px,7.4vw,124px)]">
+      <span className="text-[52px] short:text-[40px] sm:text-[68px] lg:text-[clamp(76px,7.4vw,124px)]">
         {value === null ? (
           <Pending />
         ) : (

@@ -1,5 +1,9 @@
 @import 'tailwindcss';
 
+/* Phones short enough that GO, the figures and the consent notice would not
+   all fit on the first screen: 360x640 is a common Bangladeshi Android. */
+@custom-variant short (@media (max-width: 1023px) and (max-height: 760px));
+
 /**
  * Delta flow.
  *
@@ -35,274 +39,288 @@
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
-* { box-sizing: border-box; }
-html { background: var(--bg); color-scheme: dark; scroll-behavior: smooth; }
-html, body, #root { min-height: 100%; }
+/* Everything below sits in Tailwind's layers. Unlayered CSS beats every
+   layered rule whatever its specificity, so a plain `.label { color }` would
+   silently overrule a `hover:text-*` utility on the same element. */
+@layer base {
+  * { box-sizing: border-box; }
+  html { background: var(--bg); color-scheme: dark; scroll-behavior: smooth; }
+  html, body, #root { min-height: 100%; }
 
-body {
-  margin: 0;
-  font-family: var(--font-ui);
-  color: var(--text);
-  background: var(--bg);
-  overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
+  body {
+    margin: 0;
+    font-family: var(--font-ui);
+    color: var(--text);
+    background: var(--bg);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection { background: rgba(var(--glow), 0.28); color: #fff; }
+
+  /* No border-radius here: the outline follows the element's own corners, and
+     setting one would square off every pill that takes focus. */
+  :where(button, a, input, [role='radio']):focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
 }
 
-::selection { background: rgba(var(--glow), 0.28); color: #fff; }
+@layer components {
+  /* ---------- Backdrop ---------- */
 
-/* ---------- Backdrop ---------- */
+  /* Two estuaries stacked and crossfaded, since gradients themselves cannot be
+     transitioned. Opacity is the one property that crossfades for free. */
+  .backdrop { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+  .backdrop > div { position: absolute; inset: 0; transition: opacity 1200ms var(--ease-in-out); }
+  .backdrop .land {
+    background:
+      radial-gradient(75% 65% at 10% -5%, #0e3227 0%, transparent 60%),
+      radial-gradient(70% 70% at 105% 105%, #06283a 0%, transparent 62%),
+      linear-gradient(180deg, #041412 0%, #030b0c 55%, #020809 100%);
+  }
+  .backdrop .sea {
+    opacity: 0;
+    background:
+      radial-gradient(75% 65% at 10% -5%, #0c2436 0%, transparent 60%),
+      radial-gradient(75% 75% at 105% 105%, #0d2c5c 0%, transparent 62%),
+      linear-gradient(180deg, #040e19 0%, #030913 55%, #020610 100%);
+  }
+  [data-world='raw'] .backdrop .sea { opacity: 1; }
 
-/* Two estuaries stacked and crossfaded, since gradients themselves cannot be
-   transitioned. Opacity is the one property that crossfades for free. */
-.backdrop { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
-.backdrop > div { position: absolute; inset: 0; transition: opacity 1200ms var(--ease-in-out); }
-.backdrop .land {
-  background:
-    radial-gradient(75% 65% at 10% -5%, #0e3227 0%, transparent 60%),
-    radial-gradient(70% 70% at 105% 105%, #06283a 0%, transparent 62%),
-    linear-gradient(180deg, #041412 0%, #030b0c 55%, #020809 100%);
+  /* Film grain, painted once. It stops the gradients banding into visible steps
+     on 8-bit panels, and gives the dark something to sit on. */
+  .backdrop::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.06;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .river { position: fixed; inset: 0; z-index: 1; pointer-events: none; width: 100%; height: 100%; }
+  .river-fade { transition: opacity 600ms linear; }
+  .river-wrap { transition: opacity 900ms var(--ease-in-out); }
+
+  /* ---------- Type ---------- */
+
+  .label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+    letter-spacing: -0.05em;
+    font-weight: 200;
+    line-height: 0.9;
+  }
+  .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .display { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; letter-spacing: -0.03em; }
+
+  .ink {
+    background: linear-gradient(180deg, #ffffff 30%, var(--accent-2) 115%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .accent-text {
+    background: linear-gradient(120deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .link { color: var(--muted); transition: color 200ms; }
+  .link:hover { color: var(--text); }
+  .underline-soft { text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
+
+  /* ---------- Surfaces ---------- */
+
+  .panel {
+    position: relative;
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.012)),
+      rgba(3, 13, 14, 0.62);
+    border: 1px solid var(--line);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 30px 70px -45px rgba(0, 0, 0, 0.95);
+  }
+  .panel-lit::after {
+    content: '';
+    position: absolute;
+    inset: -1px -1px auto -1px;
+    height: 1px;
+    border-radius: inherit;
+    background: linear-gradient(90deg, transparent, rgba(var(--glow), 0.6), transparent);
+  }
+  .chip {
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+  }
+  .rule { height: 1px; background: linear-gradient(90deg, transparent, var(--line-strong), transparent); }
+
+  /* ---------- GO, and the meter it becomes ----------
+     Not called .ring: Tailwind's ring utility would draw a 1px box shadow. */
+
+  .core {
+    --go: 168px;
+    --ring: 252px;
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: var(--ring);
+    height: var(--ring);
+  }
+  @media (min-width: 1024px) {
+    .core { --go: 184px; --ring: 296px; }
+  }
+  @media (max-width: 1023px) and (max-height: 760px) {
+    .core { --go: 146px; --ring: 212px; }
+  }
+  @media (max-width: 1023px) and (max-height: 600px) {
+    .core { --go: 128px; --ring: 188px; }
+  }
+
+  .go {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    width: var(--go);
+    height: var(--go);
+    border-radius: 999px;
+    cursor: pointer;
+    color: var(--text);
+    font-weight: 600;
+    font-size: 24px;
+    letter-spacing: 0.26em;
+    text-indent: 0.26em;
+    background:
+      radial-gradient(circle at 50% 30%, rgba(var(--glow), 0.2), transparent 62%),
+      rgba(2, 11, 12, 0.92);
+    box-shadow:
+      0 0 90px -18px rgba(var(--glow), 0.6),
+      inset 0 0 0 1px rgba(var(--glow), 0.16);
+    transition:
+      transform 500ms var(--ease-out),
+      opacity 400ms var(--ease-out),
+      box-shadow 500ms var(--ease-out);
+  }
+  /* The moving ring: a conic gradient masked down to a 2px band, rotated with a
+     transform so it stays on the compositor. */
+  .go::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    padding: 2px;
+    background: conic-gradient(from 0deg, var(--accent), transparent 32%, transparent 60%, var(--accent-2) 88%, var(--accent));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: spin 4.5s linear infinite;
+  }
+  .go::after {
+    content: '';
+    position: absolute;
+    inset: -24px;
+    border-radius: inherit;
+    border: 1px solid rgba(var(--glow), 0.3);
+    animation: breathe 3.4s var(--ease-in-out) infinite;
+    pointer-events: none;
+  }
+  .go:hover { transform: scale(1.045); box-shadow: 0 0 110px -14px rgba(var(--glow), 0.75), inset 0 0 0 1px rgba(var(--glow), 0.3); }
+  .go:active { transform: scale(0.96); }
+  .go:disabled { cursor: not-allowed; opacity: 0.45; }
+
+  .meter {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    /* A dark lens, so the river passes behind the live figure, not through it. */
+    background: radial-gradient(closest-side, rgba(2, 11, 12, 0.94) 0%, rgba(2, 11, 12, 0.86) 74%, rgba(2, 11, 12, 0) 100%);
+    opacity: 0;
+    transform: scale(0.82);
+    pointer-events: none;
+    transition: transform 700ms var(--ease-out), opacity 500ms var(--ease-out);
+  }
+  .meter svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+  /* Widths are in the meter's 100-unit viewBox, about 3px at either size. A
+     non-scaling stroke would be simpler to size, but Chrome then measures the
+     dash pattern in screen pixels and the progress arc repeats around the
+     circle. */
+  .meter .track { fill: none; stroke: rgba(255, 255, 255, 0.07); stroke-width: 0.7; }
+  .meter .arc {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 1.1;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 6px rgba(var(--glow), 0.8));
+    transition: stroke-dashoffset 350ms linear, stroke 600ms;
+  }
+
+  .core[data-running='true'] .go { opacity: 0; transform: scale(0.6); pointer-events: none; }
+  .core[data-running='true'] .meter { opacity: 1; transform: none; pointer-events: auto; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 0.6; }
+    50% { transform: scale(1.08); opacity: 0.12; }
+  }
+
+  /* ---------- Motion ---------- */
+
+  /* Everything moves on transform and opacity only, which keeps it on the
+     compositor and off the thread the page uses to count bytes. */
+  @keyframes rise {
+    from { opacity: 0; transform: translate3d(0, 14px, 0); }
+    to { opacity: 1; transform: none; }
+  }
+  .rise { animation: rise 900ms var(--ease-out) both; }
+
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .fade { animation: fade 700ms var(--ease-out) both; }
+
+  /* GO arriving: it grows into place rather than sliding, being the centre. */
+  @keyframes pop {
+    from { opacity: 0; transform: scale(0.86); }
+    to { opacity: 1; transform: none; }
+  }
+  .pop { animation: pop 1100ms var(--ease-out) both; }
+
+  /* Text that sits over the river keeps a soft shadow of the background behind
+     it, so a passing channel never cuts through a word. */
+  .lift { text-shadow: 0 1px 14px rgba(3, 11, 12, 0.95), 0 0 2px rgba(3, 11, 12, 0.6); }
+  /* Chrome paints text-shadow above a background-clipped fill, which would grey
+     the gradient numerals out. They are bright enough to need none. */
+  .lift .ink { text-shadow: none; }
+
+  /* Sections slide up as they scroll in. The class is added by an observer. */
+  .reveal { opacity: 0; transform: translate3d(0, 22px, 0); transition: opacity 900ms var(--ease-out), transform 900ms var(--ease-out); }
+  .reveal.in { opacity: 1; transform: none; }
+
+  @keyframes live-pulse {
+    0%, 100% { opacity: 0.4; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1); }
+  }
+  .live-dot { animation: live-pulse 1.3s ease-in-out infinite; }
+
+  @keyframes dots { 0%, 20% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
+  .dots span { animation: dots 1.2s infinite; }
+  .dots span:nth-child(2) { animation-delay: 0.2s; }
+  .dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  .go:focus-visible { outline-offset: 8px; }
 }
-.backdrop .sea {
-  opacity: 0;
-  background:
-    radial-gradient(75% 65% at 10% -5%, #0c2436 0%, transparent 60%),
-    radial-gradient(75% 75% at 105% 105%, #0d2c5c 0%, transparent 62%),
-    linear-gradient(180deg, #040e19 0%, #030913 55%, #020610 100%);
-}
-[data-world='raw'] .backdrop .sea { opacity: 1; }
-
-/* Film grain, painted once. It stops the gradients banding into visible steps
-   on 8-bit panels, and gives the dark something to sit on. */
-.backdrop::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  opacity: 0.06;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-.river { position: fixed; inset: 0; z-index: 1; pointer-events: none; width: 100%; height: 100%; transition: opacity 600ms linear; }
-.river-wrap { transition: opacity 900ms var(--ease-in-out); }
-
-/* ---------- Type ---------- */
-
-.label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--faint);
-}
-.num {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum' 1;
-  letter-spacing: -0.05em;
-  font-weight: 200;
-  line-height: 0.9;
-}
-.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-.display { font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1; letter-spacing: -0.03em; }
-
-.ink {
-  background: linear-gradient(180deg, #ffffff 30%, var(--accent-2) 115%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.accent-text {
-  background: linear-gradient(120deg, var(--accent), var(--accent-2));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.link { color: var(--muted); transition: color 200ms; }
-.link:hover { color: var(--text); }
-.underline-soft { text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 3px; }
-
-/* ---------- Surfaces ---------- */
-
-.panel {
-  position: relative;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.012)),
-    rgba(3, 13, 14, 0.62);
-  border: 1px solid var(--line);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 30px 70px -45px rgba(0, 0, 0, 0.95);
-}
-.panel-lit::after {
-  content: '';
-  position: absolute;
-  inset: -1px -1px auto -1px;
-  height: 1px;
-  border-radius: inherit;
-  background: linear-gradient(90deg, transparent, rgba(var(--glow), 0.6), transparent);
-}
-.chip {
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-}
-.rule { height: 1px; background: linear-gradient(90deg, transparent, var(--line-strong), transparent); }
-
-/* ---------- GO, and the meter it becomes ----------
-   Not called .ring: Tailwind's ring utility would draw a 1px box shadow. */
-
-.core {
-  --go: 168px;
-  --ring: 252px;
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: var(--ring);
-  height: var(--ring);
-}
-@media (min-width: 1024px) {
-  .core { --go: 184px; --ring: 296px; }
-}
-
-.go {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  width: var(--go);
-  height: var(--go);
-  border-radius: 999px;
-  cursor: pointer;
-  color: var(--text);
-  font-weight: 600;
-  font-size: 24px;
-  letter-spacing: 0.26em;
-  text-indent: 0.26em;
-  background:
-    radial-gradient(circle at 50% 30%, rgba(var(--glow), 0.2), transparent 62%),
-    rgba(2, 11, 12, 0.92);
-  box-shadow:
-    0 0 90px -18px rgba(var(--glow), 0.6),
-    inset 0 0 0 1px rgba(var(--glow), 0.16);
-  transition:
-    transform 500ms var(--ease-out),
-    opacity 400ms var(--ease-out),
-    box-shadow 500ms var(--ease-out);
-}
-/* The moving ring: a conic gradient masked down to a 2px band, rotated with a
-   transform so it stays on the compositor. */
-.go::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: inherit;
-  padding: 2px;
-  background: conic-gradient(from 0deg, var(--accent), transparent 32%, transparent 60%, var(--accent-2) 88%, var(--accent));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  animation: spin 4.5s linear infinite;
-}
-.go::after {
-  content: '';
-  position: absolute;
-  inset: -24px;
-  border-radius: inherit;
-  border: 1px solid rgba(var(--glow), 0.3);
-  animation: breathe 3.4s var(--ease-in-out) infinite;
-  pointer-events: none;
-}
-.go:hover { transform: scale(1.045); box-shadow: 0 0 110px -14px rgba(var(--glow), 0.75), inset 0 0 0 1px rgba(var(--glow), 0.3); }
-.go:active { transform: scale(0.96); }
-.go:disabled { cursor: not-allowed; opacity: 0.45; }
-
-.meter {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  /* A dark lens, so the river passes behind the live figure, not through it. */
-  background: radial-gradient(closest-side, rgba(2, 11, 12, 0.94) 0%, rgba(2, 11, 12, 0.86) 74%, rgba(2, 11, 12, 0) 100%);
-  opacity: 0;
-  transform: scale(0.82);
-  pointer-events: none;
-  transition: transform 700ms var(--ease-out), opacity 500ms var(--ease-out);
-}
-.meter svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
-/* Widths are in the meter's 100-unit viewBox, about 3px at either size. A
-   non-scaling stroke would be simpler to size, but Chrome then measures the
-   dash pattern in screen pixels and the progress arc repeats around the
-   circle. */
-.meter .track { fill: none; stroke: rgba(255, 255, 255, 0.07); stroke-width: 0.7; }
-.meter .arc {
-  fill: none;
-  stroke: var(--accent);
-  stroke-width: 1.1;
-  stroke-linecap: round;
-  filter: drop-shadow(0 0 6px rgba(var(--glow), 0.8));
-  transition: stroke-dashoffset 350ms linear, stroke 600ms;
-}
-
-.core[data-running='true'] .go { opacity: 0; transform: scale(0.6); pointer-events: none; }
-.core[data-running='true'] .meter { opacity: 1; transform: none; pointer-events: auto; }
-
-@keyframes spin { to { transform: rotate(360deg); } }
-@keyframes breathe {
-  0%, 100% { transform: scale(1); opacity: 0.6; }
-  50% { transform: scale(1.08); opacity: 0.12; }
-}
-
-/* ---------- Motion ---------- */
-
-/* Everything moves on transform and opacity only, which keeps it on the
-   compositor and off the thread the page uses to count bytes. */
-@keyframes rise {
-  from { opacity: 0; transform: translate3d(0, 14px, 0); }
-  to { opacity: 1; transform: none; }
-}
-.rise { animation: rise 900ms var(--ease-out) both; }
-
-@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-.fade { animation: fade 700ms var(--ease-out) both; }
-
-/* GO arriving: it grows into place rather than sliding, being the centre. */
-@keyframes pop {
-  from { opacity: 0; transform: scale(0.86); }
-  to { opacity: 1; transform: none; }
-}
-.pop { animation: pop 1100ms var(--ease-out) both; }
-
-/* Text that sits over the river keeps a soft shadow of the background behind
-   it, so a passing channel never cuts through a word. */
-.lift { text-shadow: 0 1px 14px rgba(3, 11, 12, 0.95), 0 0 2px rgba(3, 11, 12, 0.6); }
-/* Chrome paints text-shadow above a background-clipped fill, which would grey
-   the gradient numerals out. They are bright enough to need none. */
-.lift .ink { text-shadow: none; }
-
-/* Sections slide up as they scroll in. The class is added by an observer. */
-.reveal { opacity: 0; transform: translate3d(0, 22px, 0); transition: opacity 900ms var(--ease-out), transform 900ms var(--ease-out); }
-.reveal.in { opacity: 1; transform: none; }
-
-@keyframes live-pulse {
-  0%, 100% { opacity: 0.4; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1); }
-}
-.live-dot { animation: live-pulse 1.3s ease-in-out infinite; }
-
-@keyframes dots { 0%, 20% { opacity: 0.2; } 50% { opacity: 1; } 100% { opacity: 0.2; } }
-.dots span { animation: dots 1.2s infinite; }
-.dots span:nth-child(2) { animation-delay: 0.2s; }
-.dots span:nth-child(3) { animation-delay: 0.4s; }
-
-/* ---------- Focus ---------- */
-
-:where(button, a, input, [role='radio']):focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-  border-radius: 10px;
-}
-.go:focus-visible { outline-offset: 8px; border-radius: 999px; }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }

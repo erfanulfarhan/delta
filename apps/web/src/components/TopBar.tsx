@@ -19,9 +19,14 @@ interface Props {
   disabled: boolean;
 }
 
+// Smooth only for those who have not asked for less motion. A behaviour set
+// here overrides the stylesheet's scroll-behaviour, reduced-motion rule and all.
+const glide = (): ScrollBehavior =>
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+
 const scrollTo = (id: string) => (e: React.MouseEvent) => {
   e.preventDefault();
-  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById(id)?.scrollIntoView({ behavior: glide(), block: 'start' });
 };
 
 export function TopBar({ home, selection, onSelect, disabled }: Props) {
@@ -32,7 +37,7 @@ export function TopBar({ home, selection, onSelect, disabled }: Props) {
         onClick={(e) => {
           e.preventDefault();
           navigate('/');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          window.scrollTo({ top: 0, behavior: glide() });
         }}
         className="flex items-center gap-2.5"
         aria-label="Delta, home"

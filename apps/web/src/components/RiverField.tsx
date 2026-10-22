@@ -149,77 +149,89 @@ const energyOf = (mbps: number) => Math.min(Math.max(Math.log10(1 + mbps) / 3, 0
  * bytes move it runs faster and denser with the live speed; afterwards it
  * settles. Local's light stops at the coast, Raw's runs out to sea.
  *
- * Drawn on a canvas rather than as animated SVG. A dash animation on SVG
- * paths, especially with a glow filter, repaints the whole layer each frame;
- * here the channels are painted once to an offscreen canvas and each frame
- * draws a few dozen short strokes and sprites on top. The loop reads its
- * inputs from a ref so it is never torn down mid-test, stops while the tab
- * is hidden, and does not run at all for visitors who ask for reduced motion.
+ * Two canvases. The channels are painted once, onto the back one, whenever the
+ * size or the mode changes; each frame clears only the front one and draws a
+ * few dozen short strokes and sprites. Animated SVG would repaint the whole
+ * layer every frame, and so would blitting the channels in on every frame.
+ *
+ * It costs as little as it can, because the measurement it decorates is the
+ * point: 30 frames a second while nothing is being measured, and always on
+ * phones with four cores or fewer; inputs read from a ref so the loop is never
+ * torn down mid-test; stopped while the tab is hidden; and never started for
+ * visitors who ask for reduced motion.
  */
 export function RiverField({ glowRgb, toSea, flow, mbps, reducedMotion, dim = false }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const liveRef = useRef({ glowRgb, toSea, flow, mbps });
-  liveRef.current = { glowRgb, toSea, flow, mbps };
-  // Only set while the river is still: with no loop running, a change of mode
-  // has to repaint the channels itself.
+  const backRef = useRef<HTMLCanvasElement>(null);
+  const frontRef = useRef<HTMLCanvasElement>(null);
+  const fadeRef = useRef<HTMLDivElement>(null);
+  const liveRef = useRef({ glowRgb, toSea, flow, mbps, dim });
+  liveRef.current = { glowRgb, toSea, flow, mbps, dim };
+  // Repaints the channels for the current mode; set by the effect below.
   const repaintRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     repaintRef.current?.();
-  }, [glowRgb, toSea]);
+  }, [toSea]);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext('2d');
-    if (!canvas || !ctx) return;
+    const back = backRef.current;
+    const front = frontRef.current;
+    const ctx = front?.getContext('2d');
+    const bctx = back?.getContext('2d');
+    if (!back || !front || !ctx || !bctx) return;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.75);
+    let dpr = 1;
     let width = 0;
     let height = 0;
     let scale = 1;
     let routes: Route[] = [];
     let weights: number[] = [];
-    const channels = document.createElement('canvas');
-    let channelsFor = '';
+    const particles: Particle[] = [];
 
     const sprite = document.createElement('canvas');
     let spriteFor = '';
     const SPRITE = 40;
 
-    const layout = () => {
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = Math.round(width * dpr);
-      canvas.height = Math.round(height * dpr);
-      const net = width >= height ? LANDSCAPE : PORTRAIT;
-      const sx = width / net.w;
-      const sy = height / net.h;
-      scale = (sx + sy) / 2;
-      routes = net.routes.map((r) => sampleRoute(r, sx, sy));
-      const total = routes.reduce((sum, r) => sum + r.length, 0);
-      weights = routes.map((r) => r.length / total);
-      channelsFor = '';
+    const pickRoute = () => {
+      let r = Math.random();
+      for (let i = 0; i < weights.length; i += 1) {
+        r -= weights[i]!;
+        if (r <= 0) return i;
+      }
+      return weights.length - 1;
     };
 
-    const paintChannels = (sea: boolean) => {
-      channels.width = canvas.width;
-      channels.height = canvas.height;
-      const c = channels.getContext('2d')!;
-      c.scale(dpr, dpr);
-      c.lineCap = 'round';
-      c.lineJoin = 'round';
+    const limitOf = (route: Route) => (liveRef.current.toSea ? route.length : route.coast);
+
+    const spawn = (anywhere: boolean): Particle => {
+      const route = pickRoute();
+      return {
+        route,
+        d: anywhere ? Math.random() * limitOf(routes[route]!) * 0.9 : 0,
+        pace: 0.75 + Math.random() * 0.5,
+        brightness: 0.55 + Math.random() * 0.45,
+      };
+    };
+
+    const paintChannels = () => {
+      const sea = liveRef.current.toSea;
+      bctx.setTransform(1, 0, 0, 1, 0, 0);
+      bctx.clearRect(0, 0, back.width, back.height);
+      bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      bctx.lineCap = 'round';
+      bctx.lineJoin = 'round';
       const stroke = (route: Route, from: number, to: number, style: string, w: number) => {
-        c.beginPath();
+        bctx.beginPath();
         let started = false;
         for (let i = 0; i < route.cum.length; i += 1) {
           if (route.cum[i]! < from || route.cum[i]! > to) continue;
-          if (started) c.lineTo(route.xs[i]!, route.ys[i]!);
-          else c.moveTo(route.xs[i]!, route.ys[i]!);
+          if (started) bctx.lineTo(route.xs[i]!, route.ys[i]!);
+          else bctx.moveTo(route.xs[i]!, route.ys[i]!);
           started = true;
         }
-        c.strokeStyle = style;
-        c.lineWidth = w;
-        c.stroke();
+        bctx.strokeStyle = style;
+        bctx.lineWidth = w;
+        bctx.stroke();
       };
       for (const route of routes) {
         // A wide, faint body of water under each channel, then the channel.
@@ -227,7 +239,34 @@ export function RiverField({ glowRgb, toSea, flow, mbps, reducedMotion, dim = fa
         stroke(route, 0, route.coast, 'rgba(170, 245, 225, 0.085)', 1.2);
         stroke(route, route.coast, route.length, `rgba(150, 205, 255, ${sea ? 0.075 : 0.035})`, 1.2);
       }
-      channelsFor = `${width}x${height}:${sea}`;
+    };
+
+    const layout = () => {
+      // The canvas's own box, not innerWidth, which counts the scrollbar.
+      width = back.clientWidth;
+      height = back.clientHeight;
+      dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      for (const c of [back, front]) {
+        c.width = Math.round(width * dpr);
+        c.height = Math.round(height * dpr);
+      }
+      const net = width >= height ? LANDSCAPE : PORTRAIT;
+      const sx = width / net.w;
+      const sy = height / net.h;
+      scale = (sx + sy) / 2;
+      routes = net.routes.map((r) => sampleRoute(r, sx, sy));
+      const total = routes.reduce((sum, r) => sum + r.length, 0);
+      weights = routes.map((r) => r.length / total);
+      // The two networks have different numbers of routes, so turning a phone
+      // round can leave light on a route that no longer exists.
+      for (const p of particles) {
+        if (p.route >= routes.length) {
+          p.route = pickRoute();
+          p.d = 0;
+        }
+        p.d = Math.min(p.d, limitOf(routes[p.route]!));
+      }
+      paintChannels();
     };
 
     const paintSprite = (rgb: string) => {
@@ -244,53 +283,58 @@ export function RiverField({ glowRgb, toSea, flow, mbps, reducedMotion, dim = fa
       spriteFor = rgb;
     };
 
-    const pickRoute = () => {
-      let r = Math.random();
-      for (let i = 0; i < weights.length; i += 1) {
-        r -= weights[i]!;
-        if (r <= 0) return i;
-      }
-      return weights.length - 1;
-    };
-
-    const spawn = (anywhere: boolean): Particle => {
-      const route = pickRoute();
-      const limit = liveRef.current.toSea ? routes[route]!.length : routes[route]!.coast;
-      return {
-        route,
-        d: anywhere ? Math.random() * limit * 0.9 : 0,
-        pace: 0.75 + Math.random() * 0.5,
-        brightness: 0.55 + Math.random() * 0.45,
-      };
-    };
-
     layout();
-    window.addEventListener('resize', layout);
+    repaintRef.current = paintChannels;
+
+    // Resizes arrive in bursts, and a phone's URL bar sliding away fires them
+    // continuously while it moves. Coalesce to a frame, and let small changes
+    // in height alone go: the browser stretches the old canvas for those.
+    let resizeRaf = 0;
+    const onResize = () => {
+      cancelAnimationFrame(resizeRaf);
+      resizeRaf = requestAnimationFrame(() => {
+        const w = back.clientWidth;
+        const h = back.clientHeight;
+        if (w === width && Math.abs(h - height) < height * 0.15) return;
+        layout();
+      });
+    };
+    window.addEventListener('resize', onResize);
 
     // Fade the river back once the reader scrolls past the test, so it stays
     // behind the history and tools rather than competing with them.
     const onScroll = () => {
       const past = Math.min(window.scrollY / (window.innerHeight * 0.85), 1);
-      canvas.style.opacity = String(1 - past * 0.6);
+      if (fadeRef.current) fadeRef.current.style.opacity = String(1 - past * 0.6);
     };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
 
-    const draw = (particles: Particle[], energy: number) => {
+    const cleanup = () => {
+      cancelAnimationFrame(resizeRaf);
+      repaintRef.current = null;
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('scroll', onScroll);
+    };
+
+    // A still estuary: the channels, and nothing moving down them.
+    if (reducedMotion) return cleanup;
+
+    const draw = (energy: number) => {
       const { glowRgb: rgb, toSea: sea } = liveRef.current;
-      if (channelsFor !== `${width}x${height}:${sea}`) paintChannels(sea);
       if (spriteFor !== rgb) paintSprite(rgb);
 
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(channels, 0, 0);
+      ctx.clearRect(0, 0, front.width, front.height);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.lineCap = 'round';
+      ctx.lineWidth = 1.6;
 
       const tail = (22 + 70 * energy) * scale;
       const head = (12 + 6 * energy) * Math.max(scale, 0.6);
       for (const p of particles) {
-        const route = routes[p.route]!;
+        const route = routes[p.route];
+        if (!route) continue;
         const limit = sea ? route.length : route.coast;
         const fadeIn = Math.min(p.d / (40 * scale), 1);
         const fadeOut = Math.min(Math.max((limit - p.d) / (limit * 0.16), 0), 1);
@@ -307,7 +351,6 @@ export function RiverField({ glowRgb, toSea, flow, mbps, reducedMotion, dim = fa
         for (let i = start; i <= end; i += 1) ctx.lineTo(route.xs[i]!, route.ys[i]!);
         ctx.lineTo(hx, hy);
         ctx.strokeStyle = `rgba(${rgb}, ${0.34 * alpha})`;
-        ctx.lineWidth = 1.6;
         ctx.stroke();
 
         ctx.globalAlpha = alpha;
@@ -316,29 +359,25 @@ export function RiverField({ glowRgb, toSea, flow, mbps, reducedMotion, dim = fa
       }
     };
 
-    if (reducedMotion) {
-      // A still estuary: the channels, and nothing moving down them.
-      const repaint = () => draw([], 0);
-      repaint();
-      repaintRef.current = repaint;
-      window.addEventListener('resize', repaint);
-      return () => {
-        repaintRef.current = null;
-        window.removeEventListener('resize', layout);
-        window.removeEventListener('resize', repaint);
-        window.removeEventListener('scroll', onScroll);
-      };
-    }
-
-    const particles: Particle[] = Array.from({ length: 16 }, () => spawn(true));
+    for (let i = 0; i < 16; i += 1) particles.push(spawn(true));
+    const lowPower = (navigator.hardwareConcurrency || 2) <= 4;
     let energy = 0;
     let last = performance.now();
     let raf = 0;
 
     const frame = (now: number) => {
+      // Re-armed first, so a bad frame can never end the loop for good.
+      raf = requestAnimationFrame(frame);
+      const { flow: state, mbps: live, toSea: sea, dim: faded } = liveRef.current;
+
+      // Full rate only while measuring, and only where there are cores to
+      // spare: the light drifts slowly enough at rest that 30 fps reads the
+      // same, and a weak phone's measurement needs the time more.
+      const full = state === 'testing' && !faded && !lowPower;
+      if (!full && now - last < 1000 / 30 - 2) return;
+
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
-      const { flow: state, mbps: live, toSea: sea } = liveRef.current;
 
       // Ease toward the target rather than jumping: the live figure is itself
       // noisy, and a river that lurches reads as a broken animation.
@@ -350,10 +389,9 @@ export function RiverField({ glowRgb, toSea, flow, mbps, reducedMotion, dim = fa
 
       for (let i = particles.length - 1; i >= 0; i -= 1) {
         const p = particles[i]!;
+        const route = routes[p.route];
         p.d += speed * p.pace * dt;
-        const route = routes[p.route]!;
-        const limit = sea ? route.length : route.coast;
-        if (p.d >= limit) {
+        if (!route || p.d >= (sea ? route.length : route.coast)) {
           if (particles.length > wanted) particles.splice(i, 1);
           else particles[i] = spawn(false);
         }
@@ -362,8 +400,7 @@ export function RiverField({ glowRgb, toSea, flow, mbps, reducedMotion, dim = fa
       // speed thickens the river over a second rather than all at once.
       for (let k = 0; k < 2 && particles.length < wanted; k += 1) particles.push(spawn(false));
 
-      draw(particles, energy);
-      raf = requestAnimationFrame(frame);
+      draw(energy);
     };
 
     const onVisibility = () => {
@@ -379,16 +416,18 @@ export function RiverField({ glowRgb, toSea, flow, mbps, reducedMotion, dim = fa
     return () => {
       cancelAnimationFrame(raf);
       document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('resize', layout);
-      window.removeEventListener('scroll', onScroll);
+      cleanup();
     };
   }, [reducedMotion]);
 
-  // Dimmed on a wrapper, so it composes with the fade the canvas does itself
-  // on scroll instead of fighting it for the same style property.
+  // Dimmed on the outer wrapper and faded on scroll by the inner one, so the
+  // two effects compose instead of fighting over the same property.
   return (
     <div className="river-wrap" style={{ opacity: dim ? 0.4 : 1 }} aria-hidden="true">
-      <canvas ref={canvasRef} className="river" />
+      <div ref={fadeRef} className="river-fade">
+        <canvas ref={backRef} className="river" />
+        <canvas ref={frontRef} className="river" />
+      </div>
     </div>
   );
 }

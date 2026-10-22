@@ -38,23 +38,6 @@ export function Trace({ mbps, accent, glowRgb, active, height = 52 }: Props) {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     let width = 0;
 
-    const resize = () => {
-      width = canvas.clientWidth;
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-    resize();
-    window.addEventListener('resize', resize);
-
-    const sampler = setInterval(() => {
-      const { mbps: v, active: on } = liveRef.current;
-      if (!on && pointsRef.current.length === 0) return;
-      pointsRef.current.push(on ? v : 0);
-      if (pointsRef.current.length > MAX_POINTS) pointsRef.current.shift();
-    }, 60);
-
-    let raf = 0;
     const draw = () => {
       const points = pointsRef.current;
       ctx.clearRect(0, 0, width, height);
@@ -96,13 +79,29 @@ export function Trace({ mbps, accent, glowRgb, active, height = 52 }: Props) {
         ctx.lineWidth = 1.4;
         ctx.stroke();
       }
-
-      raf = requestAnimationFrame(draw);
     };
-    raf = requestAnimationFrame(draw);
+
+    const resize = () => {
+      width = canvas.clientWidth;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      draw();
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    // Drawn when a point arrives rather than every display frame: the picture
+    // only changes sixteen times a second, so drawing it sixty is waste.
+    const sampler = setInterval(() => {
+      const { mbps: v, active: on } = liveRef.current;
+      if (!on && pointsRef.current.length === 0) return;
+      pointsRef.current.push(on ? v : 0);
+      if (pointsRef.current.length > MAX_POINTS) pointsRef.current.shift();
+      draw();
+    }, 60);
 
     return () => {
-      cancelAnimationFrame(raf);
       clearInterval(sampler);
       window.removeEventListener('resize', resize);
     };

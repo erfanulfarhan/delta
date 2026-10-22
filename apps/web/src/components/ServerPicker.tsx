@@ -19,21 +19,22 @@ interface Props {
  * endpoint, and opening a test connection just to time it would be recorded by
  * M-Lab as a test and spend one of the visitor's 40 a day.
  *
- * No flags: Windows renders flag emoji as two bare letters.
+ * No flags: Windows renders flag emoji as two bare letters. Toggle buttons
+ * rather than a radio group: three plain tab stops need no arrow-key handling
+ * to be usable.
  */
 export function ServerPicker({ selected, onSelect, disabled, pings }: Props) {
   return (
     <div className="flex flex-col items-center gap-2.5">
       <span className="label">Raw server · M-Lab, 10 Gbps</span>
-      <div className="flex flex-wrap justify-center gap-2" role="radiogroup" aria-label="Raw server">
+      <div className="flex flex-wrap justify-center gap-2" role="group" aria-label="Raw server">
         {RAW_SERVERS.map((server) => {
           const isSelected = server.id === selected;
           const ping = pings[server.id];
           return (
             <button
               key={server.id}
-              role="radio"
-              aria-checked={isSelected}
+              aria-pressed={isSelected}
               onClick={() => onSelect(server.id)}
               disabled={disabled}
               title={`M-Lab ${server.id}, on ${server.transit}`}
